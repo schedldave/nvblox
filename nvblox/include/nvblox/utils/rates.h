@@ -15,10 +15,13 @@ limitations under the License.
 */
 #pragma once
 
+#include <glog/logging.h>
+#include <array>
+#include <functional>
+#include <mutex>
 #include <string>
 #include <unordered_map>
-
-#include <glog/logging.h>
+#include <vector>
 
 #include <nvblox/utils/timing.h>
 

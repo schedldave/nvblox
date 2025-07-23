@@ -19,12 +19,11 @@ from typing import Tuple
 import numpy as np
 import open3d as o3d
 from scipy.spatial import cKDTree as KDTree
-import matplotlib.cm as cm
+from matplotlib import cm
 
 
-def calculate_per_vertex_error(
-        reconstructed_mesh: o3d.geometry.TriangleMesh,
-        groundtruth_mesh: o3d.geometry.TriangleMesh) -> np.ndarray:
+def calculate_per_vertex_error(reconstructed_mesh: o3d.geometry.TriangleMesh,
+                               groundtruth_mesh: o3d.geometry.TriangleMesh) -> np.ndarray:
     """
     Calculate per-vertex errors between a reconstructed mesh and it's groundtruth.
 
@@ -63,7 +62,8 @@ def get_error_mesh(reconstructed_mesh: o3d.geometry.TriangleMesh,
 
     """
     assert (len(reconstructed_mesh.vertices) == len(errors))
-    # NOTE(alexmillane): We scale the errors to between the 1st and 99th percentile so the worst outliers don't bias the errors.
+    # NOTE(alexmillane): We scale the errors to between the 1st and 99th percentile
+    # so the worst outliers don't bias the errors.
     errors_low = np.percentile(errors, 1)
     error_high = np.percentile(errors, 99)
     errors_normalized = (errors - errors_low) / (error_high - errors_low)
@@ -74,17 +74,15 @@ def get_error_mesh(reconstructed_mesh: o3d.geometry.TriangleMesh,
     return error_mesh
 
 
-def get_coverage_mesh(
-        mesh: o3d.geometry.TriangleMesh,
-        within_threadhold_distance_flags: np.ndarray
-) -> o3d.geometry.TriangleMesh:
+def get_coverage_mesh(mesh: o3d.geometry.TriangleMesh,
+                      within_threadhold_distance_flags: np.ndarray) -> o3d.geometry.TriangleMesh:
     """
     Return a mesh colored by which parts are "covered" by reconstruction.
 
     Args:
     ----
     mesh (o3d.geometry.TriangleMesh): Mesh to color
-    within_threadhold_distance_flags (np.ndarray): Boolean array of flags 
+    within_threadhold_distance_flags (np.ndarray): Boolean array of flags
         indicating if vertex is covered
 
     Return:
@@ -95,16 +93,14 @@ def get_coverage_mesh(
     assert (len(mesh.vertices) == len(within_threadhold_distance_flags))
     coverage_colors = cm.cool(within_threadhold_distance_flags.astype(float))
     coverage_mesh = copy.deepcopy(mesh)
-    coverage_mesh.vertex_colors = o3d.utility.Vector3dVector(
-        coverage_colors[:, 0:3])
+    coverage_mesh.vertex_colors = o3d.utility.Vector3dVector(coverage_colors[:, 0:3])
     coverage_mesh.compute_vertex_normals()
     return coverage_mesh
 
 
-def get_per_vertex_coverage(
-        reconstructed_mesh: o3d.geometry.TriangleMesh,
-        gt_mesh: o3d.geometry.TriangleMesh,
-        covered_threshold_m: float = 0.05) -> Tuple[float, np.array]:
+def get_per_vertex_coverage(reconstructed_mesh: o3d.geometry.TriangleMesh,
+                            gt_mesh: o3d.geometry.TriangleMesh,
+                            covered_threshold_m: float = 0.05) -> Tuple[float, np.array]:
     """
     Get the proportion of groundtruth mesh vertices "covered" by the reconstructed mesh.
 
@@ -125,8 +121,7 @@ def get_per_vertex_coverage(
     reconstruction_kdtree = KDTree(reconstructed_mesh.vertices)
     distances, _ = reconstruction_kdtree.query(gt_mesh.vertices)
     within_threshold_distance_flags = distances < covered_threshold_m
-    num_vertices_within_threshold_distance = np.sum(
-        within_threshold_distance_flags.astype(int))
+    num_vertices_within_threshold_distance = np.sum(within_threshold_distance_flags.astype(int))
     proportion_of_vertices_within_threshold_distance = num_vertices_within_threshold_distance / \
         len(distances)
     return proportion_of_vertices_within_threshold_distance, within_threshold_distance_flags

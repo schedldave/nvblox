@@ -19,7 +19,7 @@ namespace nvblox {
 
 ViewBasedInclusionData::ViewBasedInclusionData(
     Transform _T_L_C, Camera _camera,
-    std::optional<const DepthImage*> _depth_image,
+    std::optional<DepthImageConstView> _depth_image,
     std::optional<float> _max_view_distance_m,
     std::optional<float> _truncation_distance_m)
     : T_L_C(_T_L_C),

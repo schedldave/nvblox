@@ -13,9 +13,10 @@ namespace marching_cubes {
 __device__ void calculateOutputIndex(
     PerVoxelMarchingCubesResults* marching_cubes_results, int* size);
 
+template <typename AppearanceType>
 __device__ void calculateVertices(
     const PerVoxelMarchingCubesResults& marching_cubes_results,
-    CudaMeshBlock* mesh);
+    CudaMeshBlock<AppearanceType>* mesh);
 
 }  // namespace marching_cubes
 }  // namespace nvblox

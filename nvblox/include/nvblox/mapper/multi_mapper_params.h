@@ -30,8 +30,8 @@ constexpr Param<bool>::Description kRemoveSmallConnectedComponentsParamDesc{
     "If set to true, small connected components will be removed from the "
     "segmentation mask."};
 
-constexpr Param<bool>::Description kUseGroundPlaneEstimationDesc{
-    "use_ground_plane_estimation", false,
+constexpr Param<bool>::Description kExperimentalUseGroundPlaneEstimationDesc{
+    "experimental_use_ground_plane_estimation", false,
     "If set to true, estimate the ground plane and use it to slice the ESDF."};
 
 constexpr Param<float>::Description
@@ -48,7 +48,8 @@ struct MultiMapperParams {
       kRemoveSmallConnectedComponentsParamDesc};
   float segmentation_mask_mode_proximity_threshold =
       kSegmentationMaskModeProximityThresholdParamDesc.default_value;
-  Param<bool> use_ground_plane_estimation{kUseGroundPlaneEstimationDesc};
+  Param<bool> experimental_use_ground_plane_estimation{
+      kExperimentalUseGroundPlaneEstimationDesc};
 
   RansacPlaneFitterParams ransac_plane_fitter_params;
   GroundPlaneEstimatorParams ground_plane_estimator_params;

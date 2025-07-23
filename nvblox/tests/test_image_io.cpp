@@ -98,10 +98,9 @@ TEST(ImageIO, 3DMatchColorImageLoadAndSave) {
   for (int row_idx = 0; row_idx < color_image.rows(); row_idx++) {
     for (int col_idx = 0; col_idx < color_image.cols(); col_idx++) {
       const Color el = diff_image(row_idx, col_idx);
-      EXPECT_EQ(el.r, 0);
-      EXPECT_EQ(el.g, 0);
-      EXPECT_EQ(el.b, 0);
-      EXPECT_EQ(el.a, 0);
+      EXPECT_EQ(el.r(), 0);
+      EXPECT_EQ(el.g(), 0);
+      EXPECT_EQ(el.b(), 0);
     }
   }
 }

@@ -15,8 +15,6 @@ limitations under the License.
 */
 #pragma once
 
-#include "nvblox/utils/logging.h"
-
 #include "nvblox/map/blox.h"
 
 namespace nvblox {

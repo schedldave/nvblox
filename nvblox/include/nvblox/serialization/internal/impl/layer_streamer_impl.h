@@ -20,7 +20,7 @@ limitations under the License.
 namespace nvblox {
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerStreamerBase<LayerType>::getSerializedLayer() {
   return serializer_.getSerializedLayer();
 }
@@ -99,7 +99,7 @@ std::vector<Index3D> LayerStreamerBase<LayerType>::getNBytesOfBlocks(
 }
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerStreamerBase<LayerType>::getNBytesOfSerializedBlocks(
     const size_t num_bytes, const LayerType& layer,
     const CudaStream& cuda_stream) {
@@ -210,7 +210,7 @@ void LayerStreamerBase<LayerType>::excludeBlocks(
 }
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerStreamerBase<LayerType>::serializeAllBlocks(
     const LayerType& layer, const std::vector<Index3D>& block_indices,
     const CudaStream& cuda_stream) {
@@ -242,7 +242,7 @@ std::vector<Index3D> LayerStreamerOldestBlocks<LayerType>::getNBytesOfBlocks(
 }
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerStreamerOldestBlocks<LayerType>::getNBytesOfSerializedBlocks(
     const size_t num_bytes, const LayerType& layer,
     const BlockExclusionParams& block_exclusion_params,
@@ -351,7 +351,7 @@ LayerStreamerOldestBlocks<LayerType>::getExcludeOutsideRadiusFunctor(
 }
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerStreamerOldestBlocks<LayerType>::estimateBandwidthAndSerialize(
     const LayerType& layer, const std::vector<Index3D>& blocks_to_serialize,
     const std::string& layer_name,

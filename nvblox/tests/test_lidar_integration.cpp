@@ -145,8 +145,9 @@ TEST_F(LidarIntegrationTest, LidarBlocksInView) {
 
   std::vector<Index3D> blocks_in_view =
       view_calculator.getBlocksInImageViewRaycast(
-          depth_image, T_L_C, lidar, voxelSizeToBlockSize(voxel_size),
-          truncation_distance_m, max_integration_distance_m);
+          MaskedDepthImageConstView(depth_image, kMaskActiveEverywhere), T_L_C,
+          lidar, voxelSizeToBlockSize(voxel_size), truncation_distance_m,
+          max_integration_distance_m);
 
   Eigen::MatrixX3i blocks_in_view_mat(blocks_in_view.size(), 3);
   for (size_t idx = 0; idx < blocks_in_view.size(); idx++) {
@@ -210,11 +211,14 @@ TEST_F(LidarIntegrationTest, SurroundingSphere) {
 
   ProjectiveTsdfIntegrator tsdf_integrator;
   tsdf_integrator.max_integration_distance_m(sphere_radius + 5.0f);
-  tsdf_integrator.integrateFrame(depth_image, T_L_C, lidar, &layer);
+  tsdf_integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_image, kMaskActiveEverywhere), T_L_C,
+      lidar, &layer);
 
   // Mesh
-  MeshLayer mesh_layer(voxelSizeToBlockSize(voxel_size), MemoryType::kDevice);
-  MeshIntegrator mesh_integrator;
+  ColorMeshLayer mesh_layer(voxelSizeToBlockSize(voxel_size),
+                            MemoryType::kDevice);
+  ColorMeshIntegrator mesh_integrator;
   mesh_integrator.integrateMeshFromDistanceField(layer, &mesh_layer);
 
   // Check all TSDF voxels have close to the distance they should.
@@ -237,7 +241,7 @@ TEST_F(LidarIntegrationTest, SurroundingSphere) {
   if (FLAGS_nvblox_test_file_output) {
     // Write out the mesh
     const std::string mesh_filepath = "lidar_sphere_mesh.ply";
-    io::outputMeshLayerToPly(mesh_layer, mesh_filepath);
+    io::outputColorMeshLayerToPly(mesh_layer, mesh_filepath);
     // Output
     const std::string filepath = "sphere_lidar_image.png";
     io::writeToPng(filepath, depth_image);

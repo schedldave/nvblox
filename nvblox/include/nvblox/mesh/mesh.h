@@ -15,27 +15,40 @@ limitations under the License.
 */
 #pragma once
 
-#include <nvblox/core/types.h>
-#include <nvblox/map/common_names.h>
-#include <nvblox/map/layer.h>
-#include <nvblox/mesh/mesh_block.h>
+#include "nvblox/core/types.h"
+#include "nvblox/core/unified_vector.h"
+#include "nvblox/mesh/mesh_block.h"
 
 namespace nvblox {
 
-/// A structure which holds a combined Mesh for CPU access.
-/// Generally produced as the result of fusing MeshBlocks in a Layer<MeshBlock>
-/// into a single mesh.
-/// NOTE(alexmillane): Currently only on the CPU.
+/// A structure which holds a combined Mesh.
+/// While the MeshBlockLayer holds a mesh for each block,
+/// this holds a single monolithic mesh for the entire map.
+template <typename AppearanceType>
 struct Mesh {
-  // Data
-  std::vector<Vector3f> vertices;
-  std::vector<Vector3f> normals;
-  std::vector<int> triangles;
-  std::vector<Color> colors;
+  /// Constructor
+  Mesh(MemoryType memory_type = MemoryType::kDevice)
+      : vertices(memory_type),
+        vertex_normals(memory_type),
+        triangles(memory_type),
+        vertex_appearances(memory_type) {}
 
-  /// Create a combined Mesh object from a MeshBlock layer. Useful for mesh
-  /// output.
-  static Mesh fromLayer(const MeshLayer& layer, const CudaStream& cuda_stream);
+  /// Clear without deallocating
+  void clearNoDeallocate() {
+    vertices.clearNoDeallocate();
+    vertex_normals.clearNoDeallocate();
+    triangles.clearNoDeallocate();
+    vertex_appearances.clearNoDeallocate();
+  }
+
+  // Data
+  unified_vector<Vector3f> vertices;
+  unified_vector<Vector3f> vertex_normals;
+  unified_vector<int> triangles;
+  unified_vector<AppearanceType> vertex_appearances;
 };
+
+using ColorMesh = Mesh<Color>;
+using FeatureMesh = Mesh<FeatureArray>;
 
 }  // namespace nvblox

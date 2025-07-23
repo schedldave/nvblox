@@ -19,24 +19,30 @@ limitations under the License.
 #include <stdint.h>
 #include <cmath>
 
+#include "nvblox/core/array.h"
+
 namespace nvblox {
 
-/// Color, stored as 8-bit RGBA, with helper functions for commonly-used colors.
-struct Color {
-  __host__ __device__ Color() : r(0), g(0), b(0), a(0) {}
-  __host__ __device__ Color(uint8_t _r, uint8_t _g, uint8_t _b)
-      : r(_r), g(_g), b(_b), a(255) {}
-  __host__ __device__ Color(uint8_t _r, uint8_t _g, uint8_t _b, uint8_t _a)
-      : r(_r), g(_g), b(_b), a(_a) {}
+/// Color, stored as 8-bit RGB, with helper functions for commonly-used colors.
+constexpr int kRgbNumElements = 3;
+struct Color : public Array<uint8_t, kRgbNumElements> {
+  __host__ __device__ Color() {}
+  __host__ __device__ Color(uint8_t r, uint8_t g, uint8_t b)
+      : Array<uint8_t, 3>({r, g, b}) {}
 
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-  uint8_t a;
+  enum Pixel { kRed = 0, kGreen = 1, kBlue = 2 };
 
-  /// Check if colors are exactly identical. Also checks alpha.
+  __host__ __device__ uint8_t r() const { return data_[kRed]; }
+  __host__ __device__ uint8_t g() const { return data_[kGreen]; }
+  __host__ __device__ uint8_t b() const { return data_[kBlue]; }
+
+  __host__ __device__ uint8_t& r() { return data_[kRed]; }
+  __host__ __device__ uint8_t& g() { return data_[kGreen]; }
+  __host__ __device__ uint8_t& b() { return data_[kBlue]; }
+
+  /// Check if colors are exactly identical.
   __host__ __device__ bool operator==(const Color& other) const {
-    return (r == other.r) && (g == other.g) && (b == other.b) && (a == other.a);
+    return (r() == other.r()) && (g() == other.g()) && (b() == other.b());
   }
 
   /// Static functions for working with colors
@@ -60,5 +66,13 @@ struct Color {
   __host__ __device__ static const Color Teal() { return Color(0, 255, 255); }
   __host__ __device__ static const Color Pink() { return Color(255, 0, 127); }
 };
+
+/// Stream operator for printing Color objects
+inline std::ostream& operator<<(std::ostream& os, const Color& color) {
+  os << "Color(r=" << static_cast<int>(color.r())
+     << ", g=" << static_cast<int>(color.g())
+     << ", b=" << static_cast<int>(color.b()) << ")";
+  return os;
+}
 
 }  // namespace nvblox

@@ -94,8 +94,12 @@ TEST_F(TsdfErrorTest, SymmetricViewOnPlane) {
   TsdfLayer layer_1(kVoxelSizeM, MemoryType::kUnified);
   TsdfLayer layer_2(kVoxelSizeM, MemoryType::kUnified);
   ProjectiveTsdfIntegrator integrator;
-  integrator.integrateFrame(depth_frame_1, T_S_C1, camera_, &layer_1);
-  integrator.integrateFrame(depth_frame_2, T_S_C2, camera_, &layer_2);
+  integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame_1, kMaskActiveEverywhere), T_S_C1,
+      camera_, &layer_1);
+  integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame_2, kMaskActiveEverywhere), T_S_C2,
+      camera_, &layer_2);
 
   // Get back projected 3d points (points on the plane).
   Pointcloud temp_pointcloud(MemoryType::kDevice);

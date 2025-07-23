@@ -28,9 +28,10 @@ __device__ void calculateOutputIndex(
       atomicAdd(size, num_vertices_in_voxel);
 }
 
+template <typename AppearanceType>
 __device__ void calculateVertices(
     const PerVoxelMarchingCubesResults& marching_cubes_results,
-    CudaMeshBlock* mesh) {
+    CudaMeshBlock<AppearanceType>* mesh) {
   const uint8_t table_index = marching_cubes_results.marching_cubes_table_index;
   const int num_triangles_in_voxel = kNumTrianglesTable[table_index];
 
@@ -62,9 +63,9 @@ __device__ void calculateVertices(
     Vector3f px = (p1 - p0);
     Vector3f py = (p2 - p0);
     Vector3f n = px.cross(py).normalized();
-    mesh->normals[next_index] = n;
-    mesh->normals[next_index + 1] = n;
-    mesh->normals[next_index + 2] = n;
+    mesh->vertex_normals[next_index] = n;
+    mesh->vertex_normals[next_index + 1] = n;
+    mesh->vertex_normals[next_index + 2] = n;
     next_index += 3;
     table_col += 3;
   }

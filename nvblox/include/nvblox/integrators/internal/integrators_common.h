@@ -75,6 +75,12 @@ void transferBlockPointersToDevice(
     const std::vector<Index3D>& block_indices, const CudaStream& cuda_stream,
     BlockLayer<BlockType>* layer_ptr, host_vector<BlockType*>* block_ptrs_host,
     device_vector<BlockType*>* block_ptrs_device);
+template <typename BlockType>
+void transferBlockPointersToDevice(
+    const std::vector<Index3D>& block_indices, const CudaStream& cuda_stream,
+    const BlockLayer<BlockType>& layer,
+    host_vector<const BlockType*>* block_ptrs_host,
+    device_vector<const BlockType*>* block_ptrs_device);
 
 /// Copies a vector of block indices to the device.
 ///

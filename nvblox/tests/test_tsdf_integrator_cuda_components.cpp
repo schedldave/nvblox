@@ -157,9 +157,11 @@ TEST_F(CudaTsdfIntegratorTest, GpuDepthImageInterpolation) {
   for (int i = 0; i < kNumTests; i++) {
     // Interpolate x and y grids
     EXPECT_TRUE(interpolation::interpolate2DLinear(
-        depth_frame_col_indices, u_px_vec.row(i), &results_col_cpu(i)));
+        DepthImageConstView(depth_frame_col_indices), u_px_vec.row(i),
+        &results_col_cpu(i)));
     EXPECT_TRUE(interpolation::interpolate2DLinear(
-        depth_frame_row_indices, u_px_vec.row(i), &results_row_cpu(i)));
+        DepthImageConstView(depth_frame_row_indices), u_px_vec.row(i),
+        &results_row_cpu(i)));
   }
 
   // GPU interpolation

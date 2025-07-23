@@ -45,7 +45,7 @@ class MeshTest : public ::testing::Test {
 
     sdf_layer_.reset(new TsdfLayer(voxel_size_, MemoryType::kUnified));
     mesh_layer_.reset(
-        new MeshLayer(sdf_layer_->block_size(), MemoryType::kUnified));
+        new ColorMeshLayer(sdf_layer_->block_size(), MemoryType::kUnified));
 
     block_size_ = mesh_layer_->block_size();
 
@@ -60,10 +60,10 @@ class MeshTest : public ::testing::Test {
   float voxel_size_ = 0.10;
 
   TsdfLayer::Ptr sdf_layer_;
-  MeshLayer::Ptr mesh_layer_;
+  ColorMeshLayer::Ptr mesh_layer_;
 
   // The actual integrator.
-  MeshIntegrator mesh_integrator_;
+  ColorMeshIntegrator mesh_integrator_;
 
   // A simulation scene.
   primitives::Scene scene_;
@@ -118,25 +118,27 @@ TEST_F(MeshTest, PlaneMesh) {
 
   // Make sure there's no empty mesh blocks.
   for (const Index3D& block_index : block_indices_mesh) {
-    MeshBlock::ConstPtr mesh_block = mesh_layer_->getBlockAtIndex(block_index);
+    ColorMeshBlock::ConstPtr mesh_block =
+        mesh_layer_->getBlockAtIndex(block_index);
 
     EXPECT_GT(mesh_block->vertices.size(), 0);
-    EXPECT_GT(mesh_block->normals.size(), 0);
+    EXPECT_GT(mesh_block->vertex_normals.size(), 0);
     EXPECT_GT(mesh_block->triangles.size(), 0);
 
     // Make sure everything is the same size.
-    EXPECT_EQ(mesh_block->vertices.size(), mesh_block->normals.size());
+    EXPECT_EQ(mesh_block->vertices.size(), mesh_block->vertex_normals.size());
     EXPECT_EQ(mesh_block->vertices.size(), mesh_block->triangles.size());
 
     unified_vector<Vector3f> vertices(MemoryType::kHost);
-    unified_vector<Vector3f> normals(MemoryType::kHost);
+    unified_vector<Vector3f> vertex_normals(MemoryType::kHost);
     vertices.copyFromAsync(mesh_block->vertices, CudaStreamOwning());
-    normals.copyFromAsync(mesh_block->normals, CudaStreamOwning());
+    vertex_normals.copyFromAsync(mesh_block->vertex_normals,
+                                 CudaStreamOwning());
 
     // Make sure that the actual points are correct.
     for (size_t i = 0; i < vertices.size(); i++) {
       const Vector3f& vertex = vertices[i];
-      const Vector3f& normal = normals[i];
+      const Vector3f& normal = vertex_normals[i];
 
       // Make sure the points on the plane are correct.
       EXPECT_NEAR(vertex.x(), 0.0, kFloatEpsilon);
@@ -147,7 +149,7 @@ TEST_F(MeshTest, PlaneMesh) {
   }
 
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(*mesh_layer_, "test_mesh_cpu.ply");
+    io::outputColorMeshLayerToPly(*mesh_layer_, "test_mesh_cpu.ply");
   }
   std::cout << timing::Timing::Print();
 }
@@ -171,7 +173,7 @@ TEST_F(MeshTest, ComplexScene) {
   EXPECT_GT(block_indices_mesh.size(), 0);
 
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(*mesh_layer_, "test_mesh_complex.ply");
+    io::outputColorMeshLayerToPly(*mesh_layer_, "test_mesh_complex.ply");
   }
   std::cout << timing::Timing::Print();
 }
@@ -185,7 +187,7 @@ TEST_F(MeshTest, GPUPlaneTest) {
   scene_.generateLayerFromScene(4 * voxel_size_, sdf_layer_.get());
 
   // Create a second mesh layer for the CPU.
-  BlockLayer<MeshBlock> cpu_mesh(block_size_, MemoryType::kUnified);
+  ColorMeshLayer cpu_mesh(block_size_, MemoryType::kUnified);
   EXPECT_TRUE(mesh_integrator_.integrateMeshFromDistanceField(
       *sdf_layer_, &cpu_mesh, DeviceType::kCPU));
 
@@ -204,16 +206,18 @@ TEST_F(MeshTest, GPUPlaneTest) {
 
   // With the GPU integration we might actually have empty mesh blocks.
   for (const Index3D& block_index : block_indices_mesh) {
-    MeshBlock::ConstPtr mesh_block = mesh_layer_->getBlockAtIndex(block_index);
-    MeshBlock::ConstPtr mesh_block_cpu = cpu_mesh.getBlockAtIndex(block_index);
+    ColorMeshBlock::ConstPtr mesh_block =
+        mesh_layer_->getBlockAtIndex(block_index);
+    ColorMeshBlock::ConstPtr mesh_block_cpu =
+        cpu_mesh.getBlockAtIndex(block_index);
     if (mesh_block_cpu == nullptr) {
       EXPECT_EQ(mesh_block->vertices.size(), 0);
-      EXPECT_EQ(mesh_block->normals.size(), 0);
+      EXPECT_EQ(mesh_block->vertex_normals.size(), 0);
       EXPECT_EQ(mesh_block->triangles.size(), 0);
     }
 
     // Make sure everything is the same size.
-    EXPECT_EQ(mesh_block->vertices.size(), mesh_block->normals.size());
+    EXPECT_EQ(mesh_block->vertices.size(), mesh_block->vertex_normals.size());
     EXPECT_EQ(mesh_block->vertices.size(), mesh_block->triangles.size());
 
     // Make sure we have the same size as on the CPU as well.
@@ -222,14 +226,15 @@ TEST_F(MeshTest, GPUPlaneTest) {
     }
 
     unified_vector<Vector3f> vertices(MemoryType::kHost);
-    unified_vector<Vector3f> normals(MemoryType::kHost);
+    unified_vector<Vector3f> vertex_normals(MemoryType::kHost);
     vertices.copyFromAsync(mesh_block->vertices, CudaStreamOwning());
-    normals.copyFromAsync(mesh_block->normals, CudaStreamOwning());
+    vertex_normals.copyFromAsync(mesh_block->vertex_normals,
+                                 CudaStreamOwning());
 
     // Make sure that the actual points are correct.
     for (size_t i = 0; i < vertices.size(); i++) {
       const Vector3f& vertex = vertices[i];
-      const Vector3f& normal = normals[i];
+      const Vector3f& normal = vertex_normals[i];
 
       // Make sure the points on the plane are correct.
       EXPECT_NEAR(vertex.x(), 0.0, kFloatEpsilon);
@@ -239,7 +244,7 @@ TEST_F(MeshTest, GPUPlaneTest) {
     }
   }
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(*mesh_layer_, "test_mesh_gpu.ply");
+    io::outputColorMeshLayerToPly(*mesh_layer_, "test_mesh_gpu.ply");
   }
   std::cout << timing::Timing::Print();
 }
@@ -303,8 +308,9 @@ TEST_F(MeshTest, IncrementalMesh) {
     // Integrate this depth image.
     std::vector<Index3D> updated_blocks;
 
-    integrator.integrateFrame(depth_frame, T_S_C, camera, sdf_layer_.get(),
-                              &updated_blocks);
+    integrator.integrateFrame(
+        MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_S_C,
+        camera, sdf_layer_.get(), &updated_blocks);
 
     // Integrate the mesh.
     mesh_integrator_.integrateBlocksGPU(*sdf_layer_, updated_blocks,
@@ -312,16 +318,16 @@ TEST_F(MeshTest, IncrementalMesh) {
   }
 
   // Create a comparison mesh.
-  BlockLayer<MeshBlock>::Ptr batch_mesh_layer(
-      new BlockLayer<MeshBlock>(block_size_, MemoryType::kUnified));
+  ColorMeshLayer::Ptr batch_mesh_layer(
+      new ColorMeshLayer(block_size_, MemoryType::kUnified));
 
   // Compute the batch mesh.
   mesh_integrator_.integrateMeshFromDistanceField(*sdf_layer_,
                                                   batch_mesh_layer.get());
 
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(*mesh_layer_, "test_mesh_inc.ply");
-    io::outputMeshLayerToPly(*batch_mesh_layer, "test_mesh_batch.ply");
+    io::outputColorMeshLayerToPly(*mesh_layer_, "test_mesh_inc.ply");
+    io::outputColorMeshLayerToPly(*batch_mesh_layer, "test_mesh_batch.ply");
   }
 
   // For each block in the batch mesh, make sure we have roughly the same
@@ -329,8 +335,9 @@ TEST_F(MeshTest, IncrementalMesh) {
   std::vector<Index3D> all_blocks = batch_mesh_layer->getAllBlockIndices();
 
   for (const Index3D& block : all_blocks) {
-    MeshBlock::ConstPtr batch_block = batch_mesh_layer->getBlockAtIndex(block);
-    MeshBlock::ConstPtr inc_block = mesh_layer_->getBlockAtIndex(block);
+    ColorMeshBlock::ConstPtr batch_block =
+        batch_mesh_layer->getBlockAtIndex(block);
+    ColorMeshBlock::ConstPtr inc_block = mesh_layer_->getBlockAtIndex(block);
 
     ASSERT_NE(inc_block.get(), nullptr);
     EXPECT_EQ(batch_block->vertices.size(), inc_block->vertices.size());
@@ -366,12 +373,13 @@ TEST_F(MeshTest, RepeatabilityTest) {
   // Integrate depth
   sdf_layer_ = std::make_shared<TsdfLayer>(voxel_size_, MemoryType::kUnified);
   ProjectiveTsdfIntegrator tsdf_integrator;
-  tsdf_integrator.integrateFrame(depth_image, Transform::Identity(), camera,
-                                 sdf_layer_.get());
+  tsdf_integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_image, kMaskActiveEverywhere),
+      Transform::Identity(), camera, sdf_layer_.get());
 
   // Generate the mesh (twice)
-  MeshLayer mesh_layer_1(block_size_, MemoryType::kUnified);
-  MeshLayer mesh_layer_2(block_size_, MemoryType::kUnified);
+  ColorMeshLayer mesh_layer_1(block_size_, MemoryType::kUnified);
+  ColorMeshLayer mesh_layer_2(block_size_, MemoryType::kUnified);
   EXPECT_TRUE(mesh_integrator_.integrateMeshFromDistanceField(*sdf_layer_,
                                                               &mesh_layer_1));
   EXPECT_TRUE(mesh_integrator_.integrateMeshFromDistanceField(*sdf_layer_,
@@ -385,8 +393,8 @@ TEST_F(MeshTest, RepeatabilityTest) {
     const Index3D& idx_1 = block_indices_1[block_idx];
     const Index3D& idx_2 = block_indices_2[block_idx];
     EXPECT_TRUE((idx_1.array() == idx_2.array()).all());
-    MeshBlock::ConstPtr block_1 = mesh_layer_1.getBlockAtIndex(idx_1);
-    MeshBlock::ConstPtr block_2 = mesh_layer_2.getBlockAtIndex(idx_2);
+    ColorMeshBlock::ConstPtr block_1 = mesh_layer_1.getBlockAtIndex(idx_1);
+    ColorMeshBlock::ConstPtr block_2 = mesh_layer_2.getBlockAtIndex(idx_2);
     EXPECT_EQ(block_1->vertices.size(), block_2->vertices.size());
 
     auto threed_less = [](const Vector3f& p_1, const Vector3f& p_2) -> bool {
@@ -439,7 +447,7 @@ TEST_F(MeshTest, WeldingTest) {
     std::vector<Index3D> one_single_index(1, index);
 
     // Get the size of the vertices before.
-    MeshBlock::Ptr mesh_block = mesh_layer_->getBlockAtIndex(index);
+    ColorMeshBlock::Ptr mesh_block = mesh_layer_->getBlockAtIndex(index);
     size_t num_vertices_preweld = mesh_block->size();
 
     weldVerticesThrustAsync(one_single_index, mesh_layer_.get(),
@@ -455,11 +463,11 @@ TEST_F(MeshTest, WeldingTest) {
 
 TEST_F(MeshTest, InPlaceWeldingTest) {
   mesh_integrator_.weld_vertices(false);
-  MeshIntegrator welding_integrator;
+  ColorMeshIntegrator welding_integrator;
   welding_integrator.weld_vertices(true);
 
-  MeshLayer::Ptr welded_mesh_layer(
-      new MeshLayer(sdf_layer_->block_size(), MemoryType::kUnified));
+  ColorMeshLayer::Ptr welded_mesh_layer(
+      new ColorMeshLayer(sdf_layer_->block_size(), MemoryType::kUnified));
 
   // Create some scene.
   scene_.addPrimitive(std::make_unique<primitives::Plane>(
@@ -481,16 +489,16 @@ TEST_F(MeshTest, InPlaceWeldingTest) {
   std::vector<Index3D> block_indices_mesh = mesh_layer_->getAllBlockIndices();
 
   for (const Index3D& index : block_indices_mesh) {
-    MeshBlock::Ptr mesh_block = mesh_layer_->getBlockAtIndex(index);
-    MeshBlock::Ptr welded_mesh_block =
+    ColorMeshBlock::Ptr mesh_block = mesh_layer_->getBlockAtIndex(index);
+    ColorMeshBlock::Ptr welded_mesh_block =
         welded_mesh_layer->getBlockAtIndex(index);
 
     EXPECT_LT(welded_mesh_block->vertices.size(), mesh_block->vertices.size());
   }
 
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(*welded_mesh_layer, "test_mesh_welded.ply");
-    io::outputMeshLayerToPly(*mesh_layer_, "test_mesh_unwelded.ply");
+    io::outputColorMeshLayerToPly(*welded_mesh_layer, "test_mesh_welded.ply");
+    io::outputColorMeshLayerToPly(*mesh_layer_, "test_mesh_unwelded.ply");
   }
 
   std::cout << timing::Timing::Print();
@@ -523,7 +531,7 @@ TEST_F(MeshTest, WeldingPartsTest) {
     std::vector<Index3D> one_single_index(1, index);
 
     // Get the size of the vertices before.
-    MeshBlock::Ptr mesh_block = mesh_layer_->getBlockAtIndex(index);
+    ColorMeshBlock::Ptr mesh_block = mesh_layer_->getBlockAtIndex(index);
 
     // Create a copy of the vertices.
     device_vector<Vector3f> input_vertices;

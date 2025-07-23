@@ -15,6 +15,7 @@ limitations under the License.
 */
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <random>
 #include "nvblox/mesh/mesh_integrator.h"
 #include "nvblox/primitives/scene.h"
 #include "nvblox/serialization/mesh_serializer_gpu.h"
@@ -39,9 +40,9 @@ class MeshSerializerGpuTestFixture : public ::testing::Test {
     scene.generateLayerFromScene(4 * kVoxelSize, sdf_layer.get());
 
     // Integrate mesh
-    MeshIntegrator mesh_integrator;
+    ColorMeshIntegrator mesh_integrator;
     mesh_layer_.reset(
-        new MeshLayer(sdf_layer->block_size(), MemoryType::kUnified));
+        new ColorMeshLayer(sdf_layer->block_size(), MemoryType::kUnified));
     mesh_integrator.weld_vertices(false);
     EXPECT_TRUE(mesh_integrator.integrateMeshFromDistanceField(
         *sdf_layer, mesh_layer_.get(), DeviceType::kCPU));
@@ -52,19 +53,19 @@ class MeshSerializerGpuTestFixture : public ::testing::Test {
     // Generate some colors
     std::vector<Index3D> all_indices = mesh_layer_->getAllBlockIndices();
     for (auto index : all_indices) {
-      MeshBlock* mesh_block = mesh_layer_->getBlockAtIndex(index).get();
+      ColorMeshBlock* mesh_block = mesh_layer_->getBlockAtIndex(index).get();
 
-      mesh_block->colors.resizeAsync(mesh_block->vertices.size(),
-                                     CudaStreamOwning());
-      for (size_t i = 0; i < mesh_block->colors.size(); ++i) {
-        mesh_block->colors[i] = Color(i % 256, i % 256, i % 256, i % 256);
+      mesh_block->vertex_appearances.resizeAsync(mesh_block->vertices.size(),
+                                                 CudaStreamOwning());
+      for (size_t i = 0; i < mesh_block->vertex_appearances.size(); ++i) {
+        mesh_block->vertex_appearances[i] = Color(i % 256, i % 256, i % 256);
       }
     }
   }
 
   void validateSerializedMesh(
       const std::vector<nvblox::Index3D>& serialized_block_indices) {
-    const std::shared_ptr<const SerializedMeshLayer> result =
+    const std::shared_ptr<SerializedColorMeshLayer> result =
         serializer_.getSerializedLayer();
     ASSERT_EQ(result->vertex_block_offsets.size(),
               serialized_block_indices.size() + 1);
@@ -81,15 +82,16 @@ class MeshSerializerGpuTestFixture : public ::testing::Test {
       EXPECT_EQ(result->triangle_index_block_offsets[i],
                 serialized_triangle_index);
 
-      const nvblox::MeshBlock* mesh_block =
+      const nvblox::ColorMeshBlock* mesh_block =
           mesh_layer_->getBlockAtIndex(serialized_block_indices[i]).get();
 
       ASSERT_NE(mesh_block, nullptr);
 
       ASSERT_GE(result->vertices.size(),
                 serialized_vertex_index + mesh_block->vertices.size());
-      ASSERT_GE(result->colors.size(),
-                serialized_vertex_index + mesh_block->colors.size());
+      ASSERT_GE(
+          result->vertex_appearances.size(),
+          serialized_vertex_index + mesh_block->vertex_appearances.size());
       ASSERT_GE(result->triangle_indices.size(),
                 serialized_triangle_index + mesh_block->triangles.size());
 
@@ -102,14 +104,12 @@ class MeshSerializerGpuTestFixture : public ::testing::Test {
           EXPECT_EQ(result->vertices[serialized_vertex_index][k],
                     mesh_block->vertices[j][k]);
         }
-        EXPECT_EQ(result->colors[serialized_vertex_index].r,
-                  mesh_block->colors[j].r);
-        EXPECT_EQ(result->colors[serialized_vertex_index].g,
-                  mesh_block->colors[j].g);
-        EXPECT_EQ(result->colors[serialized_vertex_index].b,
-                  mesh_block->colors[j].b);
-        EXPECT_EQ(result->colors[serialized_vertex_index].a,
-                  mesh_block->colors[j].a);
+        EXPECT_EQ(result->vertex_appearances[serialized_vertex_index].r(),
+                  mesh_block->vertex_appearances[j].r());
+        EXPECT_EQ(result->vertex_appearances[serialized_vertex_index].g(),
+                  mesh_block->vertex_appearances[j].g());
+        EXPECT_EQ(result->vertex_appearances[serialized_vertex_index].b(),
+                  mesh_block->vertex_appearances[j].b());
         ++serialized_vertex_index;
       }
 
@@ -124,8 +124,8 @@ class MeshSerializerGpuTestFixture : public ::testing::Test {
   // Data generators
 
   // Test subjects
-  MeshLayer::Ptr mesh_layer_;
-  MeshSerializerGpu serializer_;
+  ColorMeshLayer::Ptr mesh_layer_;
+  ColorMeshSerializerGpu serializer_;
 };
 
 TEST_F(MeshSerializerGpuTestFixture, serializeAllBlocks) {
@@ -142,7 +142,8 @@ TEST_F(MeshSerializerGpuTestFixture, serializeAllBlocks) {
 TEST_F(MeshSerializerGpuTestFixture, serializeSomeblocks) {
   // Shuffle the list of indices
   std::vector<Index3D> all_indices = mesh_layer_->getAllBlockIndices();
-  std::random_shuffle(all_indices.begin(), all_indices.end());
+  std::shuffle(all_indices.begin(), all_indices.end(),
+               std::default_random_engine());
 
   // Truncate the list
   const size_t num_blocks_to_serialize = all_indices.size() / 2;
@@ -181,22 +182,22 @@ TEST_F(MeshSerializerGpuTestFixture, serializeLastBlock) {
 TEST_F(MeshSerializerGpuTestFixture, serializeNoBlocks) {
   const std::vector<Index3D> block_indices_to_serialize;
 
-  const std::shared_ptr<const SerializedMeshLayer> result =
+  const std::shared_ptr<SerializedColorMeshLayer> result =
       serializer_.serialize(*(mesh_layer_.get()), block_indices_to_serialize,
                             CudaStreamOwning());
 
   ASSERT_TRUE(result->vertices.empty());
-  ASSERT_TRUE(result->colors.empty());
+  ASSERT_TRUE(result->vertex_appearances.empty());
   ASSERT_TRUE(result->triangle_indices.empty());
 }
 
 TEST(MeshSerializerGpuTest, serializeOneEmptyBlock) {
-  MeshLayer mesh_layer(1.f, MemoryType::kDevice);
+  ColorMeshLayer mesh_layer(1.f, MemoryType::kDevice);
 
   Index3D index(0.F, 0.F, 0.F);
   mesh_layer.allocateBlockAtIndex(index);
 
-  MeshSerializerGpu serializer;
+  ColorMeshSerializerGpu serializer;
   serializer.serialize(mesh_layer, {index}, CudaStreamOwning());
 }
 

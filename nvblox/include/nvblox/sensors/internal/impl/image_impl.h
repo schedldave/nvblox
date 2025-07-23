@@ -156,13 +156,16 @@ void Image<ElementType>::resizeAsync(const size_t rows, const size_t cols,
 
 // Wrap an existing buffer
 template <typename ElementType>
-ImageView<ElementType>::ImageView(int rows, int cols, ElementType* data)
+template <typename OtherElementType>
+ImageView<ElementType>::ImageView(int rows, int cols, OtherElementType* data)
     : ImageBase<ElementType>(rows, cols, data) {}
 
 // Wrap an existing buffer with stride
 template <typename ElementType>
+template <typename OtherElementType>
 ImageView<ElementType>::ImageView(int rows, int cols, int stride_bytes,
-                                  int num_elements_per_pixel, ElementType* data)
+                                  int num_elements_per_pixel,
+                                  OtherElementType* data)
     : ImageBase<ElementType>(rows, cols, stride_bytes, num_elements_per_pixel,
                              data) {}
 
@@ -175,10 +178,12 @@ ImageView<ElementType>::ImageView(const ImageView& other)
 template <typename ElementType>
 ImageView<ElementType> ImageView<ElementType>::cropped(
     const ImageBoundingBox& bbox) const {
-  CHECK(!bbox.isEmpty());
+  NVBLOX_DCHECK(!bbox.isEmpty(), "Undefined bounding box not allowed");
 
-  CHECK(bbox.min().y() >= 0 && bbox.max().y() < this->rows_);
-  CHECK(bbox.min().x() >= 0 && bbox.max().x() < this->cols_);
+  NVBLOX_DCHECK(bbox.min().y() >= 0 && bbox.max().y() < this->rows_,
+                "Out of bounds");
+  NVBLOX_DCHECK(bbox.min().x() >= 0 && bbox.max().x() < this->cols_,
+                "Out of bounds");
 
   const int cropped_rows = bbox.max().y() - bbox.min().y() + 1;
   const int cropped_cols = bbox.max().x() - bbox.min().x() + 1;
@@ -225,43 +230,33 @@ ImageView<ElementType>::ImageView(const Image<ElementType_nonconst>& image)
     : ImageView(image.rows(), image.cols(), image.dataConstPtr()) {}
 
 template <typename ElementType>
-MaskedImageView<ElementType>::MaskedImageView(Image<ElementType>& image,
-                                              const Image<uint8_t>& mask)
-    : ImageView<ElementType>(image), mask_(mask) {
-  CHECK_EQ(mask.rows(), image.rows());
-  CHECK_EQ(mask.cols(), image.cols());
-};
-
-template <typename ElementType>
+template <typename ImageType>
 MaskedImageView<ElementType>::MaskedImageView(
-    const Image<ElementType_nonconst>& image, const Image<uint8_t>& mask)
-    : ImageView<const ElementType_nonconst>(image), mask_(mask) {
-  CHECK_EQ(mask.rows(), image.rows());
-  CHECK_EQ(mask.cols(), image.cols());
-};
-
-template <typename ElementType>
-MaskedImageView<ElementType>::MaskedImageView(
-    const Image<ElementType_nonconst>& image,
-    const ImageView<const uint8_t>& mask)
-    : ImageView<const ElementType_nonconst>(image), mask_(mask) {
-  CHECK_EQ(mask.rows(), image.rows());
-  CHECK_EQ(mask.cols(), image.cols());
-};
-
-template <typename ElementType>
-MaskedImageView<ElementType>::MaskedImageView(Image<ElementType>& image)
-    : ImageView<ElementType>(image), mask_{0, 0, nullptr} {};
-
-template <typename ElementType>
-MaskedImageView<ElementType>::MaskedImageView(
-    const Image<ElementType_nonconst>& image)
-    : ImageView<const ElementType_nonconst>(image), mask_{0, 0, nullptr} {};
+    ImageType& image, const std::optional<ImageView<const uint8_t>>& mask,
+    const MaskMode mode)
+    : ImageView<ElementType>(image), mode_(mode) {
+  static_assert(std::is_same<typename std::remove_cv<ElementType>::type,
+                             typename ImageType::ElementType_nonconst>::value,
+                "Image types must match");
+  if (mask.has_value()) {
+    NVBLOX_CHECK(mask.value().rows() == image.rows(),
+                 "mask/image size mismatch");
+    NVBLOX_CHECK(mask.value().cols() == image.cols(),
+                 "mask/image size mismatch");
+    mask_ = mask.value();
+  }
+}
 
 template <typename ElementType>
 bool MaskedImageView<ElementType>::isMasked(const int row_idx,
                                             const int col_idx) const {
-  return mask_.dataConstPtr() == nullptr || mask_(row_idx, col_idx);
+  return
+      // Always return "true" if no mask is given
+      (mask_.dataConstPtr() == nullptr) ||
+      // Non-inverted case
+      (mode_ == MaskMode::kNonInverted) && mask_(row_idx, col_idx) ||
+      // Inverted case
+      (mode_ == MaskMode::kInverted) && !mask_(row_idx, col_idx);
 }
 
 template <typename ElementType>

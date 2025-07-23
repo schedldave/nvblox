@@ -139,23 +139,36 @@ class ProjectiveIntegrator {
   // Captures common behaviour between sensors.
   template <typename SensorType, typename UpdateFunctor>
   void integrateFrameTemplate(const MaskedDepthImageConstView& depth_frame,
-                              const ColorImage& color_frame,
+                              const MaskedColorImageConstView& color_frame,
                               const Transform& T_L_C, const SensorType& sensor,
                               UpdateFunctor* op,
                               VoxelBlockLayer<VoxelType>* layer,
                               std::vector<Index3D>* updated_blocks = nullptr);
 
-  // Two methods below are specialized for Camera/LiDAR
-  // - Calls GPU kernel to do block update.
+  // Methods below are specialized for different combinations of depth sensor +
+  // appearance image type.
+
+  // Depth camera + color image
   template <typename UpdateFunctor>
   void integrateBlocks(const MaskedDepthImageConstView& depth_frame,
-                       const ColorImage& color_frame, const Transform& T_C_L,
-                       const Camera& camera, UpdateFunctor* op,
+                       const MaskedColorImageConstView& color_frame,
+                       const Transform& T_C_L, const Camera& camera,
+                       UpdateFunctor* op,
                        VoxelBlockLayer<VoxelType>* layer_ptr);
+
+  // Depth camera + feature image
   template <typename UpdateFunctor>
   void integrateBlocks(const MaskedDepthImageConstView& depth_frame,
-                       const ColorImage& color_frame, const Transform& T_C_L,
-                       const Lidar& lidar, UpdateFunctor* op,
+                       const MaskedFeatureImageConstView& feature_frame,
+                       const Transform& T_C_L, const Camera& camera,
+                       UpdateFunctor* op,
+                       VoxelBlockLayer<VoxelType>* layer_ptr);
+  // LIDAR + color
+  template <typename UpdateFunctor>
+  void integrateBlocks(const MaskedDepthImageConstView& depth_frame,
+                       const MaskedColorImageConstView& color_frame,
+                       const Transform& T_C_L, const Lidar& lidar,
+                       UpdateFunctor* op,
                        VoxelBlockLayer<VoxelType>* layer_ptr);
 
   // Get the child integrator name

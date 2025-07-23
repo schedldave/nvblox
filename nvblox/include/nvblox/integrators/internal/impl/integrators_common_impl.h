@@ -15,6 +15,9 @@ limitations under the License.
 */
 #pragma once
 
+// TODO(dtingdahl) Add "async" postfix to functions in this file + move cuda
+// stream to the end.
+
 namespace nvblox {
 
 template <typename BlockType>
@@ -65,6 +68,28 @@ void transferBlockPointersToDevice(
   // Get the device pointers associated with this indices
   const std::vector<BlockType*> block_ptrs =
       getBlockPtrsFromIndices(block_indices, layer_ptr);
+  // Expand the buffers if they're too small
+  const int num_blocks = block_indices.size();
+  expandBuffersIfRequired(num_blocks, cuda_stream, block_ptrs_device,
+                          block_ptrs_host);
+  // Stage on the host pinned memory
+  block_ptrs_host->copyFromAsync(block_ptrs, cuda_stream);
+  // Transfer to the device
+  block_ptrs_device->copyFromAsync(*block_ptrs_host, cuda_stream);
+}
+
+template <typename BlockType>
+void transferBlockPointersToDevice(
+    const std::vector<Index3D>& block_indices, const CudaStream& cuda_stream,
+    const BlockLayer<BlockType>& layer,
+    host_vector<const BlockType*>* block_ptrs_host,
+    device_vector<const BlockType*>* block_ptrs_device) {
+  if (block_indices.empty()) {
+    return;
+  }
+  // Get the device pointers associated with these indices
+  const std::vector<const BlockType*> block_ptrs =
+      getBlockPtrsFromIndices(block_indices, layer);
   // Expand the buffers if they're too small
   const int num_blocks = block_indices.size();
   expandBuffersIfRequired(num_blocks, cuda_stream, block_ptrs_device,

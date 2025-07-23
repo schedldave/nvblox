@@ -27,6 +27,8 @@ limitations under the License.
 #include "nvblox/gpu_hash/gpu_layer_view.h"
 #include "nvblox/map/blox.h"
 #include "nvblox/map/internal/block_memory_pool.h"
+#include "nvblox/mesh/mesh.h"
+#include "nvblox/mesh/mesh_block.h"
 
 namespace nvblox {
 
@@ -62,18 +64,18 @@ class BlockLayer : public BaseLayer {
   typedef GPULayerView<BlockType> GPULayerViewType;
 
   /// The type of the CPU hash map from Index3D to BlockType::Ptr.
-  typedef typename Index3DHashMapType<typename BlockType::Ptr>::type BlockHash;
+  using BlockHash = typename Index3DHashMapType<typename BlockType::Ptr>::type;
 
   /// No default constructor.
   BlockLayer() = delete;
 
   /// Constructor
   /// @param block_size The side-length in meters of a block.
-  /// @param memory_type Where the blocks are allocated and stored.
-  BlockLayer(float block_size, MemoryType memory_type)
+  /// @param memory_pool_params Params governing where and how memory is
+  /// allocated.
+  BlockLayer(float block_size, BlockMemoryPoolParams memory_pool_params)
       : block_size_(block_size),
-        memory_type_(memory_type),
-        memory_pool_(memory_type),
+        memory_pool_(memory_pool_params),
         gpu_layer_view_(std::make_unique<GPULayerViewType>()) {}
   virtual ~BlockLayer() = default;
 
@@ -143,12 +145,12 @@ class BlockLayer : public BaseLayer {
   /// @return The size.
   __host__ __device__ float block_size() const { return block_size_; }
 
-  /// Get the number of allocated blocks
-  /// @return The total number of allocated blocks.
-  int numAllocatedBlocks() const { return blocks_.size(); }
+  /// Get the number of blocks
+  /// @return The total number of blocks.
+  int numBlocks() const { return blocks_.size(); }
 
   /// Get the number of allocated blocks
-  /// @return The total number of allocated blocks.
+  /// @return The total number of blocks.
   size_t size() const { return blocks_.size(); }
 
   /// Clear the layer of all data. Deallocate all blocks.
@@ -171,7 +173,7 @@ class BlockLayer : public BaseLayer {
 
   /// The memory type of the blocks stored in the Layer.
   /// @return The memory type.
-  MemoryType memory_type() const { return memory_type_; }
+  MemoryType memory_type() const { return memory_pool_.params().memory_type; }
 
   /// Return a GPULayerView which can be used to access the layer data on the
   /// GPU. For more details see \ref GPULayerView.
@@ -184,12 +186,15 @@ class BlockLayer : public BaseLayer {
   /// data copying with work on the CPU.
   void updateGpuHash(const CudaStream& cuda_stream) const;
 
+  /// Return the number of allocated bytes for storing blocks
+  size_t numAllocatedBytes();
+
+  /// Return the number of allocated blocks
+  size_t numAllocatedBlocks();
+
  protected:
   /// The side length in meters of a block.
   float block_size_;
-
-  /// The type of memory used to store block data.
-  MemoryType memory_type_;
 
   /// CPU Hash (Index3D -> BlockType::Ptr)
   BlockHash blocks_;
@@ -220,27 +225,25 @@ class VoxelBlockLayer : public BlockLayer<VoxelBlock<_VoxelType>> {
   typedef std::shared_ptr<const VoxelBlockLayer> ConstPtr;
 
   using VoxelType = _VoxelType;
-  using Base = BlockLayer<VoxelBlock<VoxelType>>;
-
   using VoxelBlockType = VoxelBlock<VoxelType>;
+  using BlockLayerType = BlockLayer<VoxelBlockType>;
 
   /// Constructor
   /// @param voxel_size The size of each voxel
-  /// @param memory_type In which type of memory the blocks in this layer
-  /// should
-  ///                    be stored.
-  VoxelBlockLayer(float voxel_size, MemoryType memory_type)
-      : BlockLayer<VoxelBlockType>(VoxelBlockType::kVoxelsPerSide * voxel_size,
-                                   memory_type),
+  /// @param memory_pool_params Params governing where and how memory is
+  /// allocated
+  VoxelBlockLayer(float voxel_size, BlockMemoryPoolParams memory_pool_params)
+      : BlockLayerType(VoxelBlockType::kVoxelsPerSide * voxel_size,
+                       memory_pool_params),
         voxel_size_(voxel_size) {}
   VoxelBlockLayer() = delete;
   virtual ~VoxelBlockLayer() = default;
 
-  /// Deep copies
-  VoxelBlockLayer(const VoxelBlockLayer& other);
-  VoxelBlockLayer(const VoxelBlockLayer& other, MemoryType memory_type);
-  /// Assignment retains the current layer's memory type.
-  VoxelBlockLayer& operator=(const VoxelBlockLayer& other);
+  /// Use copyFrom() instead of copy constructors
+  VoxelBlockLayer(const VoxelBlockLayer& other) = delete;
+  VoxelBlockLayer(const VoxelBlockLayer& other,
+                  MemoryType memory_type) = delete;
+  VoxelBlockLayer& operator=(const VoxelBlockLayer& other) = delete;
 
   /// Move operations
   VoxelBlockLayer(VoxelBlockLayer&& other) = default;
@@ -277,8 +280,7 @@ class VoxelBlockLayer : public BlockLayer<VoxelBlock<_VoxelType>> {
   /// @param voxels_ptr a pointer to a GPU vector of voxels where we'll store
   ///                   the output
   /// @param success_flags_ptr a pointer to a GPU vector of flags indicating
-  /// if
-  ///                          we were able to retrive each voxel.
+  ///                          if we were able to retrive each voxel.
   void getVoxelsGPU(const device_vector<Vector3f>& positions_L,
                     device_vector<VoxelType>* voxels_ptr,
                     device_vector<bool>* success_flags_ptr) const;
@@ -310,6 +312,46 @@ class VoxelBlockLayer : public BlockLayer<VoxelBlock<_VoxelType>> {
 
  private:
   float voxel_size_;
+};
+
+template <typename _AppearanceType>
+class MeshBlockLayer : public BlockLayer<MeshBlock<_AppearanceType>> {
+ public:
+  typedef std::shared_ptr<MeshBlockLayer> Ptr;
+  typedef std::shared_ptr<const MeshBlockLayer> ConstPtr;
+
+  using AppearanceType = _AppearanceType;
+  using MeshBlockType = MeshBlock<AppearanceType>;
+  using BlockLayerType = BlockLayer<MeshBlockType>;
+  using MeshType = Mesh<AppearanceType>;
+
+  /// Constructor
+  /// @param block_size The side-length in meters of a block.
+  /// @param memory_pool_params Params governing where and how memory is
+  /// allocated.
+  MeshBlockLayer(float block_size, BlockMemoryPoolParams memory_pool_params)
+      : BlockLayerType(block_size, memory_pool_params),
+        mesh_(std::make_shared<MeshType>()) {}
+  MeshBlockLayer() = delete;
+  virtual ~MeshBlockLayer() = default;
+
+  /// Use copyFrom() instead of copy constructors
+  MeshBlockLayer(const MeshBlockLayer& other) = delete;
+  MeshBlockLayer(const MeshBlockLayer& other, MemoryType memory_type) = delete;
+  MeshBlockLayer& operator=(const MeshBlockLayer& other) = delete;
+
+  /// Move operations
+  MeshBlockLayer(MeshBlockLayer&& other) = default;
+  MeshBlockLayer& operator=(MeshBlockLayer&& other) = default;
+
+  /// Get the mesh from the MeshBlockLayer.
+  /// @param cuda_stream The stream on which to perform the copy.
+  /// @return A shared pointer to the mesh.
+  const std::shared_ptr<MeshType> getMesh(const CudaStream& cuda_stream) const;
+
+ private:
+  /// The monolithic mesh constructed from all the MeshBlocks in the layer.
+  std::shared_ptr<MeshType> mesh_;
 };
 
 namespace traits {

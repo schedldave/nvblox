@@ -763,8 +763,9 @@ TEST_P(EsdfIntegratorTest, ComplexSceneWithTsdf) {
     scene_.generateDepthImageFromScene(*camera_, T_S_C, kMaxDist, &depth_image);
 
     // Integrate this depth image.
-    tsdf_integrator_.integrateFrame(depth_image, T_S_C, *camera_,
-                                    tsdf_layer_.get());
+    tsdf_integrator_.integrateFrame(
+        MaskedDepthImageConstView(depth_image, kMaskActiveEverywhere), T_S_C,
+        *camera_, tsdf_layer_.get());
   }
 
   // Actually run the ESDF generation.
@@ -861,8 +862,9 @@ TEST_P(EsdfIntegratorTest, IncrementalTsdfAndEsdfWithObjectRemovalGPU) {
 
     // Integrate this depth image.
     std::vector<Index3D> updated_blocks;
-    tsdf_integrator_.integrateFrame(depth_image, T_S_C, *camera_,
-                                    tsdf_layer_.get(), &updated_blocks);
+    tsdf_integrator_.integrateFrame(
+        MaskedDepthImageConstView(depth_image, kMaskActiveEverywhere), T_S_C,
+        *camera_, tsdf_layer_.get(), &updated_blocks);
 
     // Run incremental ESDF generation.
     esdf_integrator_.integrateBlocks(*tsdf_layer_, updated_blocks,

@@ -37,6 +37,5 @@ def load_quad_mesh(mesh_filepath: Path) -> o3d.geometry.TriangleMesh:
     gt_mesh = gt_mesh_trimesh.as_open3d
 
     # Need to copy the verties since the trimesh array is read-only
-    gt_mesh.vertex_normals = o3d.utility.Vector3dVector(
-        gt_mesh_trimesh.vertex_normals.copy())
+    gt_mesh.vertex_normals = o3d.utility.Vector3dVector(gt_mesh_trimesh.vertex_normals.copy())
     return gt_mesh

@@ -17,8 +17,6 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include <filesystem>
 
-#include "nvblox/utils/logging.h"
-
 #include "nvblox/datasets/3dmatch.h"
 #include "nvblox/mapper/multi_mapper.h"
 
@@ -139,17 +137,15 @@ TEST_F(MultiMapperTest, MaskOnAndOff) {
   // Depth masked out - expect nothing integrated
   multi_mapper_.integrateDepth(depth_frame, mask_one, T_L_C, T_CM_CD, camera,
                                camera);
-  EXPECT_EQ(
-      multi_mapper_.background_mapper()->tsdf_layer().numAllocatedBlocks(), 0);
+  EXPECT_EQ(multi_mapper_.background_mapper()->tsdf_layer().numBlocks(), 0);
 
   // Depth NOT masked out - expect same results as normal mapper
   mapper_.integrateDepth(depth_frame, T_L_C, camera);
   multi_mapper_.integrateDepth(depth_frame, mask_zero, T_L_C, T_CM_CD, camera,
                                camera);
-  EXPECT_GT(mapper_.tsdf_layer().numAllocatedBlocks(), 0);
-  EXPECT_EQ(
-      mapper_.tsdf_layer().numAllocatedBlocks(),
-      multi_mapper_.background_mapper()->tsdf_layer().numAllocatedBlocks());
+  EXPECT_GT(mapper_.tsdf_layer().numBlocks(), 0);
+  EXPECT_EQ(mapper_.tsdf_layer().numBlocks(),
+            multi_mapper_.background_mapper()->tsdf_layer().numBlocks());
 
   // Color masked out - expect blocks allocated but zero weight
   multi_mapper_.integrateColor(color_frame, mask_one, T_L_C, camera);
@@ -167,9 +163,8 @@ TEST_F(MultiMapperTest, MaskOnAndOff) {
   // Color NOT masked out - expect same results as normal mapper
   mapper_.integrateColor(color_frame, T_L_C, camera);
   multi_mapper_.integrateColor(color_frame, mask_zero, T_L_C, camera);
-  EXPECT_EQ(
-      multi_mapper_.background_mapper()->color_layer().numAllocatedBlocks(),
-      mapper_.color_layer().numAllocatedBlocks());
+  EXPECT_EQ(multi_mapper_.background_mapper()->color_layer().numBlocks(),
+            mapper_.color_layer().numBlocks());
   for (const Index3D& block_idx : mapper_.color_layer().getAllBlockIndices()) {
     const auto block = mapper_.color_layer().getBlockAtIndex(block_idx);
     const auto background_block =

@@ -27,6 +27,8 @@ from scipy.spatial import cKDTree as KDTree
 
 # TODO(remos): Move esdf/occupancy specific functionalities to separate subclasses
 class VoxelGrid:
+    """VoxelGrid class defining a 3D grid of voxels."""
+
     unobserved_sentinal = -1000.0
 
     def __init__(self,
@@ -40,12 +42,14 @@ class VoxelGrid:
         Args:
         ----
         voxels (_type_): A 3D numpy array containing VoxelGrid values
-        min_indices (_type_): An 3x1 array representing the low-side corner of the grid in voxel indices.
+        min_indices (_type_): An 3x1 array representing the low-side corner of the
+        grid in voxel indices.
         voxel_size (_type_): side length of a single voxel.
-        is_occupancy_grid (bool, optional): Whether the voxel values represent occupancy or esdf. Defaults to False.
+        is_occupancy_grid (bool, optional): Whether the voxel values represent
+        occupancy or esdf. Defaults to False.
 
         """
-        assert (len(min_indices) == 3)
+        assert len(min_indices) == 3
         self.is_occupancy_grid = is_occupancy_grid
         self.voxels = voxels
         self.min_indices = min_indices
@@ -75,9 +79,8 @@ class VoxelGrid:
         np.ndarray: returns a vector of the voxel centers.
 
         """
-        return (
-            np.arange(self.min_indices[axis_idx], self.min_indices[axis_idx] +
-                      self.shape()[axis_idx]) + 0.5) * self.voxel_size
+        return (np.arange(self.min_indices[axis_idx], self.min_indices[axis_idx] +
+                          self.shape()[axis_idx]) + 0.5) * self.voxel_size
 
     def get_valid_voxel_centers(self) -> np.ndarray:
         """
@@ -91,11 +94,10 @@ class VoxelGrid:
         x_range = self.voxel_centers_along_axis(0)
         y_range = self.voxel_centers_along_axis(1)
         z_range = self.voxel_centers_along_axis(2)
-        X, Y, Z = np.meshgrid(x_range, y_range, z_range, indexing='ij')
-        return np.vstack(
-            (X[self.voxels != VoxelGrid.unobserved_sentinal],
-             Y[self.voxels != VoxelGrid.unobserved_sentinal],
-             Z[self.voxels != VoxelGrid.unobserved_sentinal])).transpose()
+        x, y, z = np.meshgrid(x_range, y_range, z_range, indexing='ij')
+        return np.vstack((x[self.voxels != VoxelGrid.unobserved_sentinal],
+                          y[self.voxels != VoxelGrid.unobserved_sentinal],
+                          z[self.voxels != VoxelGrid.unobserved_sentinal])).transpose()
 
     def get_valid_voxel_values(self) -> np.ndarray:
         """
@@ -119,17 +121,20 @@ class VoxelGrid:
         """
         return self.voxel_size
 
-    def convert_voxel_values_to_occupancy(self):
+    def convert_voxel_values_to_occupancy(self) -> None:
         """Convert the esdf voxel values to occupancy values (true means occupied)."""
-        assert not self.is_occupancy_grid, "Voxel grid is already containing occupancy values. Conversion not valid."
+        assert not self.is_occupancy_grid, 'Voxel grid is already \
+            containing occupancy values. Conversion not valid.'
+
         self.is_occupancy_grid = True
         self.voxels = self.voxels < -0.0
 
     @staticmethod
-    def createFromAABB(aabb: o3d.geometry.AxisAlignedBoundingBox,
-                       voxel_size: float, value: float) -> 'VoxelGrid':
+    def create_from_aabb(aabb: o3d.geometry.AxisAlignedBoundingBox, voxel_size: float,
+                         value: float) -> 'VoxelGrid':
         """
-        Generate the smallest VoxelGrid fully enclosing the given AABB with voxels initialized to the passed value.
+        Generate the smallest VoxelGrid fully enclosing the given AABB
+        with voxels initialized to the passed value.
 
         Args:
         ----
@@ -142,16 +147,14 @@ class VoxelGrid:
         VoxelGrid: VoxelGrid spanning the AABB initialized to the value.
 
         """
-        max_indices = np.ceil((aabb.get_max_bound() / voxel_size) -
-                              0.5).astype(int)
-        min_indices = np.floor((aabb.get_min_bound() / voxel_size) -
-                               0.5).astype(int)
+        max_indices = np.ceil((aabb.get_max_bound() / voxel_size) - 0.5).astype(int)
+        min_indices = np.floor((aabb.get_min_bound() / voxel_size) - 0.5).astype(int)
         dims = max_indices - min_indices
         voxels = np.ones(dims, dtype=int) * value
         return VoxelGrid(voxels, min_indices, voxel_size)
 
     @staticmethod
-    def createFromMeshPly(ply_path: Path, voxel_size: float) -> 'VoxelGrid':
+    def create_from_mesh_ply(ply_path: Path, voxel_size: float) -> 'VoxelGrid':
         """
         Create a VoxelGrid representing the esdf of a scene stored as mesh ply file.
 
@@ -168,14 +171,13 @@ class VoxelGrid:
         mesh = o3d.io.read_triangle_mesh(str(ply_path))
         aabb = mesh.get_axis_aligned_bounding_box()
         # Find voxel centers inside that aabb
-        voxel_centers = VoxelGrid.createFromAABB(aabb, voxel_size,
-                                                 0).get_valid_voxel_centers()
+        voxel_centers = VoxelGrid.create_from_aabb(aabb, voxel_size, 0).get_valid_voxel_centers()
         # Fill the values with esdf values
-        return VoxelGrid.createFromSparseMesh(mesh, voxel_centers)
+        return VoxelGrid.create_from_sparse_mesh(mesh, voxel_centers)
 
     @staticmethod
-    def createFromSparseMesh(mesh: o3d.geometry.TriangleMesh,
-                             points_xyz: np.ndarray) -> 'VoxelGrid':
+    def create_from_sparse_mesh(mesh: o3d.geometry.TriangleMesh,
+                                points_xyz: np.ndarray) -> 'VoxelGrid':
         """
         Generate an ESDF VoxelGrid from a triangle mesh at voxel centers passed in.
 
@@ -200,15 +202,13 @@ class VoxelGrid:
         if not mesh.has_vertex_normals():
             mesh.compute_vertex_normals()
         gt_closest_normals = np.asarray(mesh.vertex_normals)[gt_indices]
-        dots = np.sum(np.multiply(gt_closest_vectors, gt_closest_normals),
-                      axis=1)
+        dots = np.sum(np.multiply(gt_closest_vectors, gt_closest_normals), axis=1)
         signs = np.where(dots >= 0, 1.0, -1.0)
         gt_distances = np.multiply(gt_distances, signs)
-        return VoxelGrid.createFromSparseVoxels(points_xyz, gt_distances)
+        return VoxelGrid.create_from_sparse_voxels(points_xyz, gt_distances)
 
     @staticmethod
-    def createFromSparseVoxels(voxels_xyz: np.ndarray,
-                               voxel_values: np.ndarray) -> 'VoxelGrid':
+    def create_from_sparse_voxels(voxels_xyz: np.ndarray, voxel_values: np.ndarray) -> 'VoxelGrid':
         """
         Create an VoxelGrid object from a list of valid voxels values and their locations.
 
@@ -226,8 +226,7 @@ class VoxelGrid:
         element_wise_diffs = np.diff(voxels_xyz, axis=0).flatten()
         voxel_size = np.min(element_wise_diffs[element_wise_diffs > 0])
         # Convert these two pointcloud parts to our VoxelGrid object
-        voxel_indices = (np.around((voxels_xyz / voxel_size) -
-                                   0.5)).astype(dtype=np.intc)
+        voxel_indices = (np.around((voxels_xyz / voxel_size) - 0.5)).astype(dtype=np.intc)
         min_indices = np.min(voxel_indices, axis=0)
         max_indices = np.max(voxel_indices, axis=0)
         voxel_indices_zero_based = voxel_indices - min_indices
@@ -238,7 +237,7 @@ class VoxelGrid:
         return VoxelGrid(sdf, min_indices, voxel_size)
 
     @staticmethod
-    def createFromPly(ply_path: Path) -> 'VoxelGrid':
+    def create_from_ply(ply_path: Path) -> 'VoxelGrid':
         """
         Create an VoxelGrid object from a nvblox ESDF pointcloud ply.
 
@@ -252,15 +251,12 @@ class VoxelGrid:
 
         """
         # Get the xyz position of voxels
-        sdf_pointcloud_xyz = np.asarray(
-            o3d.io.read_point_cloud(str(ply_path)).points)
+        sdf_pointcloud_xyz = np.asarray(o3d.io.read_point_cloud(str(ply_path)).points)
         # Get the ESDF values
-        sdf_pointcloud_values = np.array(
-            PlyData.read(str(ply_path)).elements[0]['intensity'])
-        return VoxelGrid.createFromSparseVoxels(sdf_pointcloud_xyz,
-                                                sdf_pointcloud_values)
+        sdf_pointcloud_values = np.array(PlyData.read(str(ply_path)).elements[0]['intensity'])
+        return VoxelGrid.create_from_sparse_voxels(sdf_pointcloud_xyz, sdf_pointcloud_values)
 
-    def writeToPly(self, ply_path: Path) -> None:
+    def write_to_ply(self, ply_path: Path) -> None:
         """
         Write the ESDF as a pointcloud ply to file.
 
@@ -273,13 +269,13 @@ class VoxelGrid:
         distances = self.get_valid_voxel_values()
         xyzi = np.hstack([xyz, distances.reshape((-1, 1))])
         xyzi_structured = np.array([tuple(row) for row in xyzi],
-                                   dtype=[('x', 'f4'), ('y', 'f4'),
-                                          ('z', 'f4'), ('intensity', 'f4')])
+                                   dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
+                                          ('intensity', 'f4')])
         point_elements = PlyElement.describe(xyzi_structured, 'vertex')
         PlyData([point_elements], text=True).write(str(ply_path))
 
     @staticmethod
-    def createFromNpz(npz_path: Path) -> 'VoxelGrid':
+    def create_from_npz(npz_path: Path) -> 'VoxelGrid':
         """
         Create a VoxelGrid object from a Npz file.
 
@@ -293,18 +289,15 @@ class VoxelGrid:
 
         """
         data = np.load(str(npz_path))
-        assert 'voxels' in data.keys(
-        ), "Voxels not stored in the loaded Npz file."
-        assert 'min_indices' in data.keys(
-        ), "Min indices not stored in the loaded Npz file."
-        assert 'voxel_size' in data.keys(
-        ), "Voxel size not stored in the loaded Npz file."
+        assert 'voxels' in data.keys(), 'Voxels not stored in the loaded Npz file.'
+        assert 'min_indices' in data.keys(), 'Min indices not stored in the loaded Npz file.'
+        assert 'voxel_size' in data.keys(), 'Voxel size not stored in the loaded Npz file.'
         assert 'is_occupancy_grid' in data.keys(
-        ), "is_occupancy_grid not stored in the loaded Npz file."
-        return VoxelGrid(data['voxels'], data['min_indices'],
-                         data['voxel_size'], data['is_occupancy_grid'])
+        ), 'is_occupancy_grid not stored in the loaded Npz file.'
+        return VoxelGrid(data['voxels'], data['min_indices'], data['voxel_size'],
+                         data['is_occupancy_grid'])
 
-    def writeToNpz(self, npz_path: Path):
+    def write_to_npz(self, npz_path: Path) -> None:
         """
         Write the VoxelGrid as a numpy array to file.
 
@@ -319,11 +312,10 @@ class VoxelGrid:
                             voxel_size=self.voxel_size,
                             is_occupancy_grid=self.is_occupancy_grid)
 
-    def get_slice_mesh_at_ratio(
-            self,
-            slice_level_ratio: float,
-            axis: str = 'x',
-            cube_size: float = 0.75) -> o3d.geometry.TriangleMesh:
+    def get_slice_mesh_at_ratio(self,
+                                slice_level_ratio: float,
+                                axis: str = 'x',
+                                cube_size: float = 0.75) -> o3d.geometry.TriangleMesh:
         """
         Get a mesh representing a slice at ratio (0.0-1.0) along dimension axis.
 
@@ -339,9 +331,11 @@ class VoxelGrid:
         o3d.geometry.TriangleMesh: Mesh representing the slice.
 
         """
-        assert not self.is_occupancy_grid, "This function should not be called with an occupancy voxel grid."
-        assert (slice_level_ratio >= 0.0 and slice_level_ratio <= 1.0)
-        assert (axis == 'x' or axis == 'y' or axis == 'z')
+        assert not self.is_occupancy_grid, 'This function should not \
+            be called with an occupancy voxel grid.'
+
+        assert 0.0 <= slice_level_ratio <= 1.0
+        assert axis in ('x', 'y', 'z')
         if axis == 'x':
             axis_idx = 0
         elif axis == 'y':
@@ -351,11 +345,10 @@ class VoxelGrid:
         slice_level_idx = int(self.shape()[axis_idx] * slice_level_ratio)
         return self.get_slice_mesh_at_index(slice_level_idx, axis, cube_size)
 
-    def get_slice_mesh_at_index(
-            self,
-            slice_level_idx: int,
-            axis: str = 'x',
-            cube_size: float = 0.75) -> o3d.geometry.TriangleMesh:
+    def get_slice_mesh_at_index(self,
+                                slice_level_idx: int,
+                                axis: str = 'x',
+                                cube_size: float = 0.75) -> o3d.geometry.TriangleMesh:
         """
         Get a mesh representing a slice at slice_level_idx along dimension axis.
 
@@ -371,17 +364,17 @@ class VoxelGrid:
         o3d.geometry.TriangleMesh: Mesh representing the slice.
 
         """
-        assert not self.is_occupancy_grid, "This function should not be called with an occupancy voxel grid."
-        assert (axis == 'x' or axis == 'y' or axis == 'z')
-        assert (cube_size > 0.0 and cube_size <= 1.0)
+        assert not self.is_occupancy_grid, 'This function should not be \
+            called with an occupancy voxel grid.'
+
+        assert axis in ('x', 'y', 'z')
+        assert 0.0 < cube_size <= 1.0
 
         # The VoxelGrid values to clip at
         percentile_lim_upper = 90
         percentile_lim_lower = 10
-        sdf_clip_max = np.percentile(self.get_valid_voxel_values(),
-                                     percentile_lim_upper)
-        sdf_clip_min = np.percentile(self.get_valid_voxel_values(),
-                                     percentile_lim_lower)
+        sdf_clip_max = np.percentile(self.get_valid_voxel_values(), percentile_lim_upper)
+        sdf_clip_min = np.percentile(self.get_valid_voxel_values(), percentile_lim_lower)
 
         # Size of the cubes
         voxel_cube_size = self.voxel_size * cube_size
@@ -389,31 +382,31 @@ class VoxelGrid:
         # Slice
         if axis == 'x':
             slice_level_m = self.voxel_centers_along_axis(0)[slice_level_idx]
-            slice = self.voxels[slice_level_idx, :, :]
+            slice_voxels = self.voxels[slice_level_idx, :, :]
             dim_1_vec = self.voxel_centers_along_axis(1)
             dim_2_vec = self.voxel_centers_along_axis(2)
 
-            def to_3d(y, z):
-                return np.array([slice_level_m, y, z])
+            def to_3d(term_1: int, term_2: int) -> np.ndarray:
+                return np.array([slice_level_m, term_1, term_2])
         elif axis == 'y':
             slice_level_m = self.voxel_centers_along_axis(1)[slice_level_idx]
-            slice = self.voxels[:, slice_level_idx, :]
+            slice_voxels = self.voxels[:, slice_level_idx, :]
             dim_1_vec = self.voxel_centers_along_axis(0)
             dim_2_vec = self.voxel_centers_along_axis(2)
 
-            def to_3d(x, z):
-                return np.array([x, slice_level_m, z])
+            def to_3d(term_1: int, term_2: int) -> np.ndarray:
+                return np.array([term_1, slice_level_m, term_2])
         else:
             slice_level_m = self.voxel_centers_along_axis(2)[slice_level_idx]
-            slice = self.voxels[:, :, slice_level_idx]
+            slice_voxels = self.voxels[:, :, slice_level_idx]
             dim_1_vec = self.voxel_centers_along_axis(0)
             dim_2_vec = self.voxel_centers_along_axis(1)
 
-            def to_3d(x, y):
-                return np.array([x, y, slice_level_m])
+            def to_3d(term_1: int, term_2: int) -> np.ndarray:
+                return np.array([term_1, term_2, slice_level_m])
 
         # Normalizing/Clipping the distances
-        slice_normalized = (slice - sdf_clip_min) / \
+        slice_normalized = (slice_voxels - sdf_clip_min) / \
             (sdf_clip_max - sdf_clip_min)
         slice_normalized = slice_normalized.clip(min=0.0, max=1.0)
 
@@ -421,12 +414,11 @@ class VoxelGrid:
         slice_mesh = o3d.geometry.TriangleMesh()
         for idx_1, pos_1 in np.ndenumerate(dim_1_vec):
             for idx_2, pos_2 in np.ndenumerate(dim_2_vec):
-                if slice[idx_1, idx_2] == self.unobserved_sentinal:
+                if slice_voxels[idx_1, idx_2] == self.unobserved_sentinal:
                     continue
-                box = o3d.geometry.TriangleMesh.create_box(
-                    width=voxel_cube_size,
-                    height=voxel_cube_size,
-                    depth=voxel_cube_size)
+                box = o3d.geometry.TriangleMesh.create_box(width=voxel_cube_size,
+                                                           height=voxel_cube_size,
+                                                           depth=voxel_cube_size)
                 color = plt.cm.viridis(slice_normalized[idx_1, idx_2])
                 box.compute_vertex_normals()
                 box.paint_uniform_color(color[0, 0:3])
@@ -447,5 +439,5 @@ class VoxelGrid:
         return np.sum(self.voxels != self.unobserved_sentinal)
 
     def __repr__(self) -> str:
-        return "VoxelGrid of voxels with shape: " + str(self.voxels.shape) \
-            + " and " + str(self.num_valid_voxels()) + " valid voxels."
+        return 'VoxelGrid of voxels with shape: ' + str(self.voxels.shape) \
+            + ' and ' + str(self.num_valid_voxels()) + ' valid voxels.'

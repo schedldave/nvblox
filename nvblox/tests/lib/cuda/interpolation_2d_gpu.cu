@@ -28,8 +28,9 @@ __global__ void interpolate(const ElementType* image_unified_ptr, int rows,
   const int lin_idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (lin_idx < num_points) {
     ElementType value;
-    if (interpolation::interpolate2DLinear(image_unified_ptr, u_px_vec[lin_idx],
-                                           rows, cols, &value)) {
+    if (interpolation::interpolate2DLinear(
+            ImageView<const ElementType>(rows, cols, image_unified_ptr),
+            u_px_vec[lin_idx], &value)) {
       success_flags[lin_idx] = 1;
       values_ptr[lin_idx] = value;
     } else {

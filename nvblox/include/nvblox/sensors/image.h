@@ -17,8 +17,10 @@ limitations under the License.
 
 #include <cuda_runtime.h>
 #include <memory>
+#include <optional>
 
 #include "nvblox/core/color.h"
+#include "nvblox/core/feature_array.h"
 #include "nvblox/core/types.h"
 #include "nvblox/core/unified_vector.h"
 
@@ -89,6 +91,7 @@ class ImageBase {
  public:
   // "Save" the element type so it's queryable as Image::ElementType.
   typedef _ElementType ElementType;
+  typedef typename std::remove_cv<_ElementType>::type ElementType_nonconst;
 
   /// Destructor
   __host__ __device__ virtual ~ImageBase() = default;
@@ -189,22 +192,26 @@ class ImageBase {
 
  protected:
   /// Constructors protected. Only callable from the child classes.
+  template <typename OtherElementType = ElementType>
   __host__ __device__ ImageBase(int rows, int cols, int stride_bytes,
                                 int num_elements_per_pixel,
-                                ElementType* data = nullptr)
+                                OtherElementType* data = nullptr)
       : rows_(rows),
         cols_(cols),
         stride_num_elements_(strideFromBytesToElements(stride_bytes)),
         num_elements_per_pixel_(num_elements_per_pixel),
         data_(data) {}
+  template <typename OtherElementType = ElementType>
   __host__ __device__ ImageBase(int rows, int cols, int stride_bytes,
-                                ElementType* data = nullptr)
+                                OtherElementType* data = nullptr)
       : rows_(rows),
         cols_(cols),
         stride_num_elements_(strideFromBytesToElements(stride_bytes)),
         num_elements_per_pixel_(1),
         data_(data) {}
-  __host__ __device__ ImageBase(int rows, int cols, ElementType* data = nullptr)
+  template <typename OtherElementType = ElementType>
+  __host__ __device__ ImageBase(int rows, int cols,
+                                OtherElementType* data = nullptr)
       : rows_(rows),
         cols_(cols),
         stride_num_elements_(cols),
@@ -322,14 +329,16 @@ class ImageView : public ImageBase<_ElementType> {
   typedef _ElementType ElementType;
   typedef typename std::remove_cv<_ElementType>::type ElementType_nonconst;
 
-  ImageView() = default;
+  __host__ __device__ ImageView() = default;
 
   /// Wrap an externally allocated data buffer as an image view.
   ///
   /// @param rows rows in image buffer
   /// @param cols cols in image buffer
   /// @param data memory buffer
-  ImageView(int rows, int cols, ElementType* data = nullptr);
+  template <typename OtherElementType = ElementType>
+  __host__ __device__ ImageView(int rows, int cols,
+                                OtherElementType* data = nullptr);
 
   /// Wrap an externally allocated data buffer as an image view. This version
   /// supports more options for defining the layout of the wrapped buffer.
@@ -339,8 +348,10 @@ class ImageView : public ImageBase<_ElementType> {
   /// @param stride_bytes Buffer stride bwetween rows *in bytes*
   /// @param Number of elements stored in each pixel.
   /// @param data memory buffer
-  ImageView(int rows, int cols, int stride_bytes, int num_elements_per_pixel,
-            ElementType* data = nullptr);
+  template <typename OtherElementType = ElementType>
+  __host__ __device__ ImageView(int rows, int cols, int stride_bytes,
+                                int num_elements_per_pixel,
+                                OtherElementType* data = nullptr);
 
   /// Construct from an (memory-owning) Image
   /// Note that it is the users responsiblity to ensure the underlying image
@@ -350,42 +361,65 @@ class ImageView : public ImageBase<_ElementType> {
   ImageView(const Image<ElementType_nonconst>& image);
 
   /// Destructor
-  virtual ~ImageView() = default;
+  __host__ __device__ virtual ~ImageView() = default;
 
   /// (Shallow) Copy
-  ImageView(const ImageView& other);
-  ImageView& operator=(const ImageView& other);
+  __host__ __device__ ImageView(const ImageView& other);
+  __host__ __device__ ImageView& operator=(const ImageView& other);
 
   /// Move (ImageView is a shallow copy so a move-construction is the same as
   /// copy-construction)
-  ImageView(ImageView&& other);
-  ImageView& operator=(ImageView&& other);
+  __host__ __device__ ImageView(ImageView&& other);
+  __host__ __device__ ImageView& operator=(ImageView&& other);
 
   /// Return a cropped version of the image view
-  ImageView cropped(const ImageBoundingBox& bbox) const;
+  __host__ __device__ ImageView cropped(const ImageBoundingBox& bbox) const;
 };
 
 /// An ImageView with an accompanying view of a boolean mask.
 /// If no mask is provided during construction, the mask will have value "true"
-/// everywhere
+/// everywhere. The "mode" argument can be used to optionally invert the
+/// provided mask
+enum class MaskMode { kNonInverted, kInverted };
+
+// This constant can be passed instead of a mask in order to mimic a mask that
+// is active everywhere
+constexpr std::nullopt_t kMaskActiveEverywhere = std::nullopt;
 template <typename _ElementType>
 class MaskedImageView : public ImageView<_ElementType> {
  public:
   typedef _ElementType ElementType;
   typedef typename std::remove_cv<_ElementType>::type ElementType_nonconst;
 
-  /// Construct from existing image and mask
-  MaskedImageView(Image<ElementType>& image, const Image<uint8_t>& mask);
-  MaskedImageView(const Image<ElementType_nonconst>& image,
-                  const Image<uint8_t>& mask);
+  MaskedImageView() = default;
 
-  /// Construct from existing image and mask view
-  MaskedImageView(const Image<ElementType_nonconst>& image,
-                  const ImageView<const uint8_t>& mask);
+  /// Copy-construct from other masked image view. Templated on OtherElementType
+  /// to support const and non-const
+  template <typename OtherElementType>
+  MaskedImageView(const MaskedImageView<OtherElementType>& other)
+      : ImageView<ElementType>(other),
+        mask_(other.mask()),
+        mode_(other.mode()) {}
 
-  /// Construct without mask.
-  MaskedImageView(Image<ElementType>& image);
-  MaskedImageView(const Image<ElementType_nonconst>& image);
+  /// Assign-construct from other masked image view. Templated on
+  /// OtherElementType to support const and non-const
+  template <typename OtherElementType>
+  MaskedImageView operator=(const MaskedImageView<OtherElementType>& other) {
+    return MaskedImageView(other);
+  }
+
+  /// Return true if an explicit mask image was provided during construction.
+  bool hasMask() const { return mask_.dataConstPtr() != nullptr; }
+
+  /// Construct from existing image and mask. Templated on OtherImageType to
+  /// support const and non-const versions of ImageView and Image. Construct
+  /// from existing image and mask view
+  template <typename OtherImageType>
+  MaskedImageView(OtherImageType& image,
+                  const std::optional<ImageView<const uint8_t>>& mask,
+                  const MaskMode mode = MaskMode::kNonInverted);
+
+  MaskedImageView(const int rows, const int cols, ElementType* data);
 
   /// Probe whether a pixel is masked or not. Will always return true if no mask
   /// image was provided during construction.
@@ -395,8 +429,12 @@ class MaskedImageView : public ImageView<_ElementType> {
   /// Get the mask view
   ImageView<const uint8_t> mask() const { return mask_; }
 
+  /// Get the mask mode
+  MaskMode mode() const { return mode_; }
+
  private:
   ImageView<const uint8_t> mask_;
+  MaskMode mode_ = MaskMode::kNonInverted;
 };
 
 /// Common Names
@@ -411,6 +449,11 @@ using DepthImageConstView = ImageView<const float>;
 using ColorImageConstView = ImageView<const Color>;
 using MonoImageConstView = ImageView<const uint8_t>;
 using MaskedDepthImageConstView = MaskedImageView<const float>;
+using FeatureImage = Image<FeatureArray>;
+using FeatureImageView = ImageView<FeatureArray>;
+using FeatureImageConstView = ImageView<const FeatureArray>;
+using MaskedFeatureImageConstView = MaskedImageView<const FeatureArray>;
+using MaskedColorImageConstView = MaskedImageView<const Color>;
 
 // Image Operations
 namespace image {

@@ -23,27 +23,40 @@ limitations under the License.
 namespace nvblox {
 namespace io {
 
-bool outputMeshLayerToPly(const BlockLayer<MeshBlock>& layer,
-                          const std::string& filename) {
+bool outputColorMeshLayerToPly(const ColorMeshLayer& layer,
+                               const std::string& filename) {
+  // Create a CUDA stream for the mesh operations
+  auto cuda_stream = CudaStreamOwning();
+
   // TODO: doesn't support intensity yet!!!!
-  const Mesh mesh = Mesh::fromLayer(layer, CudaStreamOwning());
+  const std::shared_ptr<const ColorMesh> mesh = layer.getMesh(cuda_stream);
+
+  // Convert unified vectors to std vectors for PLY writer
+  std::vector<Vector3f> vertices = mesh->vertices.toVectorAsync(cuda_stream);
+  std::vector<Vector3f> normals =
+      mesh->vertex_normals.toVectorAsync(cuda_stream);
+  std::vector<Color> colors =
+      mesh->vertex_appearances.toVectorAsync(cuda_stream);
+  std::vector<int> triangles = mesh->triangles.toVectorAsync(cuda_stream);
+
+  cuda_stream.synchronize();
 
   // Create the ply writer object
   io::PlyWriter writer(filename);
-  writer.setPoints(&mesh.vertices);
-  writer.setTriangles(&mesh.triangles);
-  if (mesh.normals.size() > 0) {
-    writer.setNormals(&mesh.normals);
+  writer.setPoints(&vertices);
+  writer.setTriangles(&triangles);
+  if (normals.size() > 0) {
+    writer.setNormals(&normals);
   }
-  if (mesh.colors.size() > 0) {
-    writer.setColors(&mesh.colors);
+  if (colors.size() > 0) {
+    writer.setColors(&colors);
   }
   return writer.write();
 }
 
-bool outputMeshLayerToPly(const BlockLayer<MeshBlock>& layer,
-                          const char* filename) {
-  return outputMeshLayerToPly(layer, std::string(filename));
+bool outputColorMeshLayerToPly(const ColorMeshLayer& layer,
+                               const char* filename) {
+  return outputColorMeshLayerToPly(layer, std::string(filename));
 }
 
 }  // namespace io

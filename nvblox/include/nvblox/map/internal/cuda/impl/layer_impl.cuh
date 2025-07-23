@@ -15,6 +15,10 @@ limitations under the License.
 */
 #pragma once
 
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/transform.h>
+
 #include "nvblox/gpu_hash/internal/cuda/gpu_indexing.cuh"
 #include "nvblox/map/layer.h"
 
@@ -75,6 +79,108 @@ void VoxelBlockLayer<VoxelType>::getVoxelsGPU(
 
   cuda_stream_ptr->synchronize();
   checkCudaErrors(cudaPeekAtLastError());
+}
+
+// MeshBlockLayer
+
+struct add_constant_functor {
+  const int constant_;
+
+  add_constant_functor(int constant) : constant_(constant) {}
+
+  __host__ __device__ int operator()(const int& x) const {
+    return x + constant_;
+  }
+};
+
+template <typename AppearanceType>
+const std::shared_ptr<Mesh<AppearanceType>>
+MeshBlockLayer<AppearanceType>::getMesh(const CudaStream& cuda_stream) const {
+  // Count total vertices and triangles across all blocks
+  int total_num_vertices = 0;
+  int total_num_triangles = 0;
+  const std::vector<Index3D> block_indices = this->getAllBlockIndices();
+  for (const Index3D& index : block_indices) {
+    typename MeshBlockType::ConstPtr block = this->getBlockAtIndex(index);
+    total_num_vertices += block->vertices.size();
+    total_num_triangles += block->triangles.size();
+  }
+
+  // Clear the mesh (without deallocating to avoid reallocating).
+  // Expand the mesh buffers if the total number of vertices and triangles
+  // is greater than the current capacity.
+  mesh_->clearNoDeallocate();
+  expandBuffersIfRequired(total_num_vertices, cuda_stream, &mesh_->vertices);
+  expandBuffersIfRequired(total_num_vertices, cuda_stream,
+                          &mesh_->vertex_normals);
+  expandBuffersIfRequired(total_num_vertices, cuda_stream,
+                          &mesh_->vertex_appearances);
+  expandBuffersIfRequired(total_num_triangles, cuda_stream, &mesh_->triangles);
+
+  // Keep track of the indices.
+  int next_vertex_index = 0;
+  int next_triangle_index = 0;
+
+  // Loop over mesh blocks copying them to the monolithic mesh.
+  for (const Index3D& index : block_indices) {
+    typename MeshBlockType::ConstPtr block = this->getBlockAtIndex(index);
+
+    // Check that the mesh block has:
+    // - per vertex appearances
+    // - per vertex vertex_normals
+    const size_t num_vertices_in_block = block->vertices.size();
+    const size_t num_triangles_in_block = block->triangles.size();
+    CHECK((num_vertices_in_block == block->vertex_normals.size()) ||
+          (block->vertex_normals.size() == 0));
+    CHECK((num_vertices_in_block == block->vertex_appearances.size()) ||
+          (block->vertex_appearances.size() == 0));
+
+    // Append the vertices.
+    mesh_->vertices.resizeAsync(mesh_->vertices.size() + num_vertices_in_block,
+                                cuda_stream);
+    block->vertices.copyToAsync(mesh_->vertices.data() + next_vertex_index,
+                                cuda_stream);
+
+    // Append the normals.
+    mesh_->vertex_normals.resizeAsync(
+        mesh_->vertex_normals.size() + num_vertices_in_block, cuda_stream);
+    block->vertex_normals.copyToAsync(
+        mesh_->vertex_normals.data() + next_vertex_index, cuda_stream);
+
+    // Append the appearances.
+    mesh_->vertex_appearances.resizeAsync(
+        mesh_->vertex_appearances.size() + num_vertices_in_block, cuda_stream);
+    block->vertex_appearances.copyToAsync(
+        mesh_->vertex_appearances.data() + next_vertex_index, cuda_stream);
+
+    // Append the triangles.
+    mesh_->triangles.resizeAsync(
+        mesh_->triangles.size() + num_triangles_in_block, cuda_stream);
+    // The triangle indices are relative to the vertex index, so we need to add
+    // the current vertex index to each triangle index.
+    thrust::device_ptr<const int> block_triangles_thrust(
+        block->triangles.data());
+    thrust::device_ptr<int> mesh_triangles_thrust(mesh_->triangles.data() +
+                                                  next_triangle_index);
+    thrust::transform(thrust::device.on(cuda_stream), block_triangles_thrust,
+                      block_triangles_thrust + num_triangles_in_block,
+                      mesh_triangles_thrust,
+                      add_constant_functor(next_vertex_index));
+
+    // Increment the indices.
+    next_vertex_index += num_vertices_in_block;
+    next_triangle_index += num_triangles_in_block;
+  }
+
+  // Check that the output mesh has:
+  // - per vertex appearances
+  // - per vertex vertex_normals
+  CHECK((mesh_->vertices.size() == mesh_->vertex_normals.size()) ||
+        (mesh_->vertex_normals.size() == 0));
+  CHECK((mesh_->vertices.size() == mesh_->vertex_appearances.size()) ||
+        (mesh_->vertex_appearances.size() == 0));
+
+  return mesh_;
 }
 
 }  // namespace nvblox

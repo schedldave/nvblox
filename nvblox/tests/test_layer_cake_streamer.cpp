@@ -28,9 +28,9 @@ TEST(LayerCakeStreamer, AddLayerTypes) {
   const TsdfLayerStreamerOldestBlocks* tsdf_layer_ptr =
       layer_cake_streamer.getConstPtr<TsdfLayer>();
   EXPECT_NE(tsdf_layer_ptr, nullptr);
-  layer_cake_streamer.add<MeshLayer>();
-  MeshLayerStreamerOldestBlocks* mesh_layer_ptr =
-      layer_cake_streamer.getPtr<MeshLayer>();
+  layer_cake_streamer.add<ColorMeshLayer>();
+  ColorMeshLayerStreamerOldestBlocks* mesh_layer_ptr =
+      layer_cake_streamer.getPtr<ColorMeshLayer>();
   EXPECT_NE(mesh_layer_ptr, nullptr);
 
   // Try to get a layer streamer that hasn't been added
@@ -48,10 +48,10 @@ TEST(LayerCakeStreamer, AddLayerTypes) {
 
 TEST(LayerCakeStreamer, CreateFactory) {
   auto layer_cake_streamer =
-      LayerCakeStreamer::create<TsdfLayer, ColorLayer, MeshLayer>();
+      LayerCakeStreamer::create<TsdfLayer, ColorLayer, ColorMeshLayer>();
   EXPECT_NE(layer_cake_streamer.getConstPtr<TsdfLayer>(), nullptr);
   EXPECT_NE(layer_cake_streamer.getConstPtr<ColorLayer>(), nullptr);
-  EXPECT_NE(layer_cake_streamer.getConstPtr<MeshLayer>(), nullptr);
+  EXPECT_NE(layer_cake_streamer.getConstPtr<ColorMeshLayer>(), nullptr);
 }
 
 TEST(LayerCakeStreamer, Empty) {

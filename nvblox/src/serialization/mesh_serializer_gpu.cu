@@ -24,25 +24,30 @@ limitations under the License.
 
 namespace nvblox {
 
-std::shared_ptr<const SerializedMeshLayer> MeshSerializerGpu::serialize(
-    const MeshLayer& mesh_layer,
+template <typename AppearanceType>
+std::shared_ptr<SerializedMeshLayer<AppearanceType>>
+MeshSerializerGpu<AppearanceType>::serialize(
+    const MeshLayerType& mesh_layer,
     const std::vector<Index3D>& block_indices_to_serialize,
     const CudaStream& cuda_stream) {
   vertex_serializer_.serializeAsync(
       mesh_layer, block_indices_to_serialize, serialized_mesh_->vertices,
       serialized_mesh_->vertex_block_offsets,
-      [](const MeshBlock* mesh_block) -> const std::pair<const Vector3f*, int> {
+      [](const MeshBlockType* mesh_block)
+          -> const std::pair<const Vector3f*, int> {
         return std::make_pair(mesh_block->vertices.data(),
                               mesh_block->vertices.size());
       },
       cuda_stream);
 
-  color_serializer_.serializeAsync(
-      mesh_layer, block_indices_to_serialize, serialized_mesh_->colors,
+  appearance_serializer_.serializeAsync(
+      mesh_layer, block_indices_to_serialize,
+      serialized_mesh_->vertex_appearances,
       serialized_mesh_->vertex_block_offsets,
-      [](const MeshBlock* mesh_block) -> const std::pair<const Color*, int> {
-        return std::make_pair(mesh_block->colors.data(),
-                              mesh_block->colors.size());
+      [](const MeshBlockType* mesh_block)
+          -> const std::pair<const AppearanceType*, int> {
+        return std::make_pair(mesh_block->vertex_appearances.data(),
+                              mesh_block->vertex_appearances.size());
       },
       cuda_stream);
 
@@ -50,7 +55,7 @@ std::shared_ptr<const SerializedMeshLayer> MeshSerializerGpu::serialize(
       mesh_layer, block_indices_to_serialize,
       serialized_mesh_->triangle_indices,
       serialized_mesh_->triangle_index_block_offsets,
-      [](const MeshBlock* mesh_block) -> const std::pair<const int*, int> {
+      [](const MeshBlockType* mesh_block) -> const std::pair<const int*, int> {
         return std::make_pair(mesh_block->triangles.data(),
                               mesh_block->triangles.size());
       },
@@ -64,7 +69,12 @@ std::shared_ptr<const SerializedMeshLayer> MeshSerializerGpu::serialize(
   return serialized_mesh_;
 }
 
-MeshSerializerGpu::MeshSerializerGpu()
-    : serialized_mesh_(std::make_shared<SerializedMeshLayer>()) {}
+template <typename AppearanceType>
+MeshSerializerGpu<AppearanceType>::MeshSerializerGpu()
+    : serialized_mesh_(std::make_shared<SerializedLayerType>()) {}
+
+// Explicit instantiations.
+template class MeshSerializerGpu<Color>;
+template class MeshSerializerGpu<FeatureArray>;
 
 }  // namespace nvblox

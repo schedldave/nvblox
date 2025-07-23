@@ -23,7 +23,7 @@ limitations under the License.
 namespace nvblox {
 
 template <typename LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerCakeStreamer::estimateBandwidthAndSerialize(
     const LayerType& layer, const std::vector<Index3D>& blocks_to_serialize,
     const std::string& layer_name,
@@ -37,12 +37,12 @@ LayerCakeStreamer::estimateBandwidthAndSerialize(
   } else {
     LOG(WARNING) << "Called estimateBandwidthAndSerialize() for LayerType not "
                     "in the LayerCake. Doing nothing.";
-    return std::shared_ptr<const SerializedLayerType<LayerType>>();
+    return std::shared_ptr<SerializedLayerType<LayerType>>();
   }
 }
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerCakeStreamer::serializeAllBlocks(const LayerType& layer,
                                       const std::vector<Index3D>& block_indices,
                                       const CudaStream& cuda_stream) {
@@ -52,12 +52,12 @@ LayerCakeStreamer::serializeAllBlocks(const LayerType& layer,
   } else {
     LOG(WARNING) << "Called serializeAllBlocks() for LayerType not "
                     "in the LayerCake. Doing nothing.";
-    return std::shared_ptr<const SerializedLayerType<LayerType>>();
+    return std::shared_ptr<SerializedLayerType<LayerType>>();
   }
 }
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayerType<LayerType>>
+std::shared_ptr<SerializedLayerType<LayerType>>
 LayerCakeStreamer::getSerializedLayer() {
   auto streamer_ptr = getPtr<LayerType>();
   if (streamer_ptr != nullptr) {
@@ -65,7 +65,7 @@ LayerCakeStreamer::getSerializedLayer() {
   } else {
     LOG(WARNING) << "Called getSerializedLayer() for LayerType not "
                     "in the LayerCake. Doing nothing.";
-    return std::shared_ptr<const SerializedLayerType<LayerType>>();
+    return std::shared_ptr<SerializedLayerType<LayerType>>();
   }
 }
 

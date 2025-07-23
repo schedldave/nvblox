@@ -19,6 +19,7 @@ limitations under the License.
 #include <iostream>
 #include <vector>
 
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
 #include <Eigen/Core>
@@ -66,13 +67,22 @@ inline bool isGpuMemory(const MemoryType memory_type) {
           (memory_type == MemoryType::kUnified));
 }
 
+/// Return true if T is either a native float type or a half-precision float
+/// type
+template <typename T>
+constexpr bool isFloatType() {
+  return std::is_floating_point<T>::value || std::is_same<T, __half>::value;
+}
+
 enum class LayerType : int {
   kTsdf,
   kEsdf,
   kColor,
-  kMesh,
+  kColorMesh,
+  kFeatureMesh,
   kFreespace,
   kOccupancy,
+  kFeature
 };
 
 using LayerTypeBitMask = BitMask<LayerType>;

@@ -22,7 +22,6 @@ limitations under the License.
 #include <iostream>
 
 #include <gflags/gflags.h>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/core/types.h"
 #include "nvblox/datasets/image_loader.h"

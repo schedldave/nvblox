@@ -17,67 +17,81 @@ limitations under the License.
 
 namespace nvblox {
 
-MeshBlock::MeshBlock(MemoryType memory_type)
+template <typename AppearanceType>
+MeshBlock<AppearanceType>::MeshBlock(MemoryType memory_type)
     : vertices(memory_type),
-      normals(memory_type),
-      colors(memory_type),
+      vertex_normals(memory_type),
+      vertex_appearances(memory_type),
       triangles(memory_type) {}
 
-void MeshBlock::clear() {
+template <typename AppearanceType>
+void MeshBlock<AppearanceType>::clear() {
   vertices.clearNoDeallocate();
-  normals.clearNoDeallocate();
+  vertex_normals.clearNoDeallocate();
   triangles.clearNoDeallocate();
-  colors.clearNoDeallocate();
+  vertex_appearances.clearNoDeallocate();
 }
 
-MeshBlock::Ptr MeshBlock::allocate(MemoryType memory_type) {
-  return std::make_shared<MeshBlock>(memory_type);
+template <typename AppearanceType>
+MeshBlock<AppearanceType>::Ptr MeshBlock<AppearanceType>::allocate(
+    MemoryType memory_type) {
+  return std::make_shared<MeshBlock<AppearanceType>>(memory_type);
 }
 
-MeshBlock::Ptr MeshBlock::allocateAsync(MemoryType memory_type,
-                                        const CudaStream&) {
+template <typename AppearanceType>
+MeshBlock<AppearanceType>::Ptr MeshBlock<AppearanceType>::allocateAsync(
+    MemoryType memory_type, const CudaStream&) {
   return allocate(memory_type);
 }
 
-size_t MeshBlock::size() const { return vertices.size(); }
-
-size_t MeshBlock::capacity() const { return vertices.capacity(); }
-
-void MeshBlock::expandColorsToMatchVerticesAsync(
-    const CudaStream& cuda_stream) {
-  colors.reserveAsync(vertices.capacity(), cuda_stream);
-  colors.resizeAsync(vertices.size(), cuda_stream);
+template <typename AppearanceType>
+size_t MeshBlock<AppearanceType>::size() const {
+  return vertices.size();
 }
 
-void MeshBlock::copyFromAsync(const MeshBlock& other,
-                              const CudaStream& cuda_stream) {
+template <typename AppearanceType>
+size_t MeshBlock<AppearanceType>::capacity() const {
+  return vertices.capacity();
+}
+
+template <typename AppearanceType>
+void MeshBlock<AppearanceType>::expandAppearanceToMatchVerticesAsync(
+    const CudaStream& cuda_stream) {
+  vertex_appearances.reserveAsync(vertices.capacity(), cuda_stream);
+  vertex_appearances.resizeAsync(vertices.size(), cuda_stream);
+}
+
+template <typename AppearanceType>
+void MeshBlock<AppearanceType>::copyFromAsync(
+    const MeshBlock<AppearanceType>& other, const CudaStream& cuda_stream) {
   vertices.copyFromAsync(other.vertices, cuda_stream);
-  normals.copyFromAsync(other.normals, cuda_stream);
-  colors.copyFromAsync(other.colors, cuda_stream);
+  vertex_normals.copyFromAsync(other.vertex_normals, cuda_stream);
+  vertex_appearances.copyFromAsync(other.vertex_appearances, cuda_stream);
   triangles.copyFromAsync(other.triangles, cuda_stream);
 }
 
-void MeshBlock::copyFrom(const MeshBlock& other) {
+template <typename AppearanceType>
+void MeshBlock<AppearanceType>::copyFrom(
+    const MeshBlock<AppearanceType>& other) {
   copyFromAsync(other, CudaStreamOwning());
 }
 
 // Set the pointers to point to the mesh block.
-CudaMeshBlock::CudaMeshBlock(MeshBlock* block) {
+template <typename AppearanceType>
+CudaMeshBlock<AppearanceType>::CudaMeshBlock(MeshBlock<AppearanceType>* block) {
   CHECK_NOTNULL(block);
   vertices = block->vertices.data();
-  normals = block->normals.data();
+  vertex_normals = block->vertex_normals.data();
   triangles = block->triangles.data();
-  colors = block->colors.data();
+  vertex_appearances = block->vertex_appearances.data();
 
   vertices_size = block->vertices.size();
   triangles_size = block->triangles.size();
 }
 
-size_t sizeInBytes(const MeshBlock* mesh_block) {
-  return mesh_block->vertices.size() * sizeof(Vector3f) +  // NOLINT
-         mesh_block->normals.size() * sizeof(Vector3f) +   // NOLINT
-         mesh_block->colors.size() * sizeof(Color) +       // NOLINT
-         mesh_block->triangles.size() * sizeof(int);
-}
+template class MeshBlock<Color>;
+template class MeshBlock<FeatureArray>;
+template class CudaMeshBlock<Color>;
+template class CudaMeshBlock<FeatureArray>;
 
 }  // namespace nvblox

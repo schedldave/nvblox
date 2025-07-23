@@ -26,7 +26,7 @@ struct UpdateOccupancyVoxelFunctor {
   UpdateOccupancyVoxelFunctor() {}
 
   __device__ bool operator()(const float surface_depth_measured,
-                             const float voxel_depth_m, const bool is_masked,
+                             const float voxel_depth_m, const bool is_active,
                              OccupancyVoxel* voxel_ptr) {
     if (surface_depth_measured <= 0.F) {
       return false;
@@ -36,8 +36,8 @@ struct UpdateOccupancyVoxelFunctor {
     float log_odds_update;
 
     // Unobserved if the voxel is behind the object or if depth pixel is
-    // unmasked
-    if (!is_masked || voxel_depth_m > surface_depth_measured +
+    // inactive
+    if (!is_active || voxel_depth_m > surface_depth_measured +
                                           occupied_region_half_width_m_) {
       log_odds_update = unobserved_region_log_odds_;
     } else if (voxel_depth_m >

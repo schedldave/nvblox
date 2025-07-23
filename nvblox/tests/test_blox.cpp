@@ -76,17 +76,15 @@ TEST(BloxTest, ColorInitialization) {
   BlockLayer<ColorBlock> layer_device(block_size_m, MemoryType::kDevice);
   auto block_device_ptr = layer_device.allocateBlockAtIndex(Index3D(0, 0, 0));
   ColorVoxel gray_voxel;
-  gray_voxel.color.r = 127;
-  gray_voxel.color.g = 127;
-  gray_voxel.color.b = 127;
-  gray_voxel.color.a = 255;
+  gray_voxel.color.r() = 127;
+  gray_voxel.color.g() = 127;
+  gray_voxel.color.b() = 127;
   gray_voxel.weight = 0.0f;
   EXPECT_TRUE(test_utils::checkBlockAllConstant(block_device_ptr, gray_voxel));
   ColorVoxel zero_voxel;
-  zero_voxel.color.r = 0;
-  zero_voxel.color.g = 0;
-  zero_voxel.color.b = 0;
-  zero_voxel.color.a = 0;
+  zero_voxel.color.r() = 0;
+  zero_voxel.color.g() = 0;
+  zero_voxel.color.b() = 0;
   zero_voxel.weight = 0.0f;
   EXPECT_FALSE(test_utils::checkBlockAllConstant(block_device_ptr, zero_voxel));
 }

@@ -15,8 +15,6 @@ limitations under the License.
 */
 #pragma once
 
-#include "nvblox/utils/logging.h"
-
 namespace nvblox {
 
 Camera::Camera(float fu, float fv, float cu, float cv, int width, int height)

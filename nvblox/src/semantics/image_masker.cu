@@ -45,8 +45,9 @@ __global__ void splitColorImageKernel(const Color* input, const uint8_t* mask,
   // Overlay the mask onto the color image as debug output
   if (masked_depth_overlay) {
     const Color input_color = image::access(row_idx, col_idx, cols, input);
-    image::access(row_idx, col_idx, cols, masked_depth_overlay) = Color(
-        fmax(input_color.r, is_masked * 255u), input_color.g, input_color.b);
+    image::access(row_idx, col_idx, cols, masked_depth_overlay) =
+        Color(std::fmax(input_color.r(), is_masked * 255u), input_color.g(),
+              input_color.b());
   }
 
   if (is_masked) {
@@ -181,7 +182,7 @@ __global__ void splitDepthImageKernel(
       if (masked_depth_overlay) {
         image::access(row_idx, col_idx, depth_camera.cols(),
                       masked_depth_overlay)
-            .r = 255u;
+            .r() = 255u;
       }
     } else {
       copyToUnmaskedOutput(depth_input, row_idx, col_idx, depth_camera.cols(),

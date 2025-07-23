@@ -24,7 +24,7 @@ limitations under the License.
 #include "nvblox/dynamics/dynamics_detection.h"
 #include "nvblox/gpu_hash/gpu_layer_view.h"
 #include "nvblox/integrators/esdf_integrator.h"
-#include "nvblox/integrators/projective_color_integrator.h"
+#include "nvblox/integrators/projective_appearance_integrator.h"
 #include "nvblox/integrators/projective_tsdf_integrator.h"
 #include "nvblox/io/image_io.h"
 #include "nvblox/map/blox.h"
@@ -36,7 +36,6 @@ limitations under the License.
 #include "nvblox/mesh/mesh_block.h"
 #include "nvblox/mesh/mesh_integrator.h"
 #include "nvblox/rays/sphere_tracer.h"
-#include "nvblox/utils/logging.h"
 
 namespace nvblox {
 
@@ -65,7 +64,7 @@ class Fuser {
   // Output a pointcloud ESDF as PLY file.
   bool outputESDFPointcloudPly();
   // Output a file with the mesh.
-  bool outputMeshPly();
+  bool outputColorMeshPly();
   // Output timings to a file
   bool outputTimingsToFile();
   // Output the serialized map to a file
@@ -85,7 +84,7 @@ class Fuser {
   std::shared_ptr<const Transform> getDepthCameraPose() const;
   std::shared_ptr<const Camera> getColorCamera() const;
   std::shared_ptr<const Transform> getColorCameraPose() const;
-  std::shared_ptr<const SerializedMeshLayer> getSerializedMesh() const;
+  std::shared_ptr<SerializedColorMeshLayer> getSerializedColorMesh() const;
 
   // MultiMapper - Contains two mappers
   std::shared_ptr<MultiMapper> multi_mapper_;
@@ -127,7 +126,7 @@ class Fuser {
       std::make_shared<DepthImage>(MemoryType::kDevice);
   std::shared_ptr<ColorImage> color_frame_ =
       std::make_shared<ColorImage>(MemoryType::kDevice);
-  std::shared_ptr<const SerializedMeshLayer> serialized_mesh_;
+  std::shared_ptr<SerializedColorMeshLayer> serialized_color_mesh_;
 };
 
 }  //  namespace nvblox

@@ -77,7 +77,9 @@ TEST_F(OccupancyIntegratorTest, ReconstructPlane) {
   const Transform T_L_C = Transform::Identity();
 
   integrator_ptr->truncation_distance_vox(10.0f);
-  integrator_ptr->integrateFrame(depth_frame, T_L_C, camera_, &layer_);
+  integrator_ptr->integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+      camera_, &layer_);
 
   // // Sample some points on the plane, within the camera view.
   constexpr int kNumberOfPointsToCheck = 1000;
@@ -170,7 +172,9 @@ TEST_F(OccupancyIntegratorTest, SphereSceneTest) {
     scene.generateDepthImageFromScene(camera_, T_S_C, kMaxDist, &depth_frame);
 
     // Integrate this depth image.
-    integrator.integrateFrame(depth_frame, T_S_C, camera_, &layer_gpu);
+    integrator.integrateFrame(
+        MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_S_C,
+        camera_, &layer_gpu);
   }
 
   // Now do some checks...
@@ -212,7 +216,7 @@ TEST_F(OccupancyIntegratorTest, MarkUnobservedFree) {
   constexpr float voxel_size_m = 0.1;
   OccupancyLayer occupancy_layer(voxel_size_m, MemoryType::kUnified);
 
-  EXPECT_EQ(occupancy_layer.numAllocatedBlocks(), 0);
+  EXPECT_EQ(occupancy_layer.numBlocks(), 0);
 
   // Do the observation.
   const Vector3f center(0.0, 0.0, 0.0);
@@ -222,7 +226,7 @@ TEST_F(OccupancyIntegratorTest, MarkUnobservedFree) {
   integrator.markUnobservedFreeInsideRadius(center, radius, &occupancy_layer);
 
   // Check some blocks got allocated
-  CHECK_GT(occupancy_layer.numAllocatedBlocks(), 0);
+  CHECK_GT(occupancy_layer.numBlocks(), 0);
 
   // Check the blocks
   // If the log_odds is zero, then it means the voxel is unobserved. If it is

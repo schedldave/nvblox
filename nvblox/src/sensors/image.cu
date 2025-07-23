@@ -185,14 +185,13 @@ void elementWiseMultiplicationInPlaceGPUAsync(const float constant,
 }
 
 __device__ Color diff(const Color& color_1, const Color& color_2) {
-  return Color(static_cast<uint8_t>(std::abs(static_cast<int16_t>(color_1.r) -
-                                             static_cast<int16_t>(color_2.r))),
-               static_cast<uint8_t>(std::abs(static_cast<int16_t>(color_1.g) -
-                                             static_cast<int16_t>(color_2.g))),
-               static_cast<uint8_t>(std::abs(static_cast<int16_t>(color_1.b) -
-                                             static_cast<int16_t>(color_2.b))),
-               static_cast<uint8_t>(std::abs(static_cast<int16_t>(color_1.a) -
-                                             static_cast<int16_t>(color_2.a))));
+  return Color(
+      static_cast<uint8_t>(std::abs(static_cast<int16_t>(color_1.r()) -
+                                    static_cast<int16_t>(color_2.r()))),
+      static_cast<uint8_t>(std::abs(static_cast<int16_t>(color_1.g()) -
+                                    static_cast<int16_t>(color_2.g()))),
+      static_cast<uint8_t>(std::abs(static_cast<int16_t>(color_1.b()) -
+                                    static_cast<int16_t>(color_2.b()))));
 }
 
 __device__ float diff(const float& depth_1, const float& depth_2) {

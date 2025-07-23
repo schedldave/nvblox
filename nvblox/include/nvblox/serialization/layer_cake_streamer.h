@@ -39,8 +39,7 @@ class LayerCakeStreamer {
   /// @param cuda_stream Cuda stream
   /// @return The serialized layer
   template <typename LayerType>
-  std::shared_ptr<const SerializedLayerType<LayerType>>
-  estimateBandwidthAndSerialize(
+  std::shared_ptr<SerializedLayerType<LayerType>> estimateBandwidthAndSerialize(
       const LayerType& layer, const std::vector<Index3D>& blocks_to_serialize,
       const std::string& layer_name,
       const BlockExclusionParams& block_exclusion_params,
@@ -53,13 +52,13 @@ class LayerCakeStreamer {
   /// @param block_indices block indices to serialize
   /// @param cuda_stream Cuda stream for GPU work
   template <typename LayerType>
-  std::shared_ptr<const SerializedLayerType<LayerType>> serializeAllBlocks(
+  std::shared_ptr<SerializedLayerType<LayerType>> serializeAllBlocks(
       const LayerType& layer, const std::vector<Index3D>& block_indices,
       const CudaStream& cuda_stream);
 
   /// @brief Get the serialized result from the last computation
   template <typename LayerType>
-  std::shared_ptr<const SerializedLayerType<LayerType>> getSerializedLayer();
+  std::shared_ptr<SerializedLayerType<LayerType>> getSerializedLayer();
 
   /// Adds a new LayerStreamer to the collection
   /// Note that only a single layer of each type may be added. Calls to try to

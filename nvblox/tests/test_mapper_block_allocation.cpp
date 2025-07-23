@@ -15,7 +15,6 @@ limitations under the License.
 */
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/core/types.h"
 #include "nvblox/geometry/bounding_spheres.h"
@@ -108,13 +107,13 @@ struct MapperTestBlocksInLayers : public testing::Test {
 
   /// @brief Test that all layers have the right blocks allocated.
   void testBlocksInLayers() {
-    EXPECT_GT(mapper_.layers().get<LayerType>().numAllocatedBlocks(), 0);
+    EXPECT_GT(mapper_.layers().get<LayerType>().numBlocks(), 0);
 
     // Check color layer.
     // It should always have the same blocks as the projective layer
     // (tsdf/occupancy).
-    EXPECT_EQ(mapper_.layers().get<LayerType>().numAllocatedBlocks(),
-              mapper_.color_layer().numAllocatedBlocks());
+    EXPECT_EQ(mapper_.layers().get<LayerType>().numBlocks(),
+              mapper_.color_layer().numBlocks());
     for (const Index3D& projective_idx :
          mapper_.layers().get<LayerType>().getAllBlockIndices()) {
       EXPECT_TRUE(mapper_.color_layer().isBlockAllocated(projective_idx));
@@ -124,8 +123,8 @@ struct MapperTestBlocksInLayers : public testing::Test {
     // It should always have the same blocks as the projective layer
     // (tsdf/occupancy).
     if (ParametrizationStruct::hasFreespaceLayer()) {
-      EXPECT_EQ(mapper_.layers().get<LayerType>().numAllocatedBlocks(),
-                mapper_.freespace_layer().numAllocatedBlocks());
+      EXPECT_EQ(mapper_.layers().get<LayerType>().numBlocks(),
+                mapper_.freespace_layer().numBlocks());
       for (const Index3D& projective_idx :
            mapper_.layers().get<LayerType>().getAllBlockIndices()) {
         EXPECT_TRUE(mapper_.freespace_layer().isBlockAllocated(projective_idx));
@@ -136,8 +135,8 @@ struct MapperTestBlocksInLayers : public testing::Test {
     // If EsdfMode is 3D, it should always have the same blocks as the
     // projective layer (tsdf/occupancy).
     if (ParametrizationStruct::getEsdfMode() == EsdfMode::k3D) {
-      EXPECT_EQ(mapper_.layers().get<LayerType>().numAllocatedBlocks(),
-                mapper_.esdf_layer().numAllocatedBlocks());
+      EXPECT_EQ(mapper_.layers().get<LayerType>().numBlocks(),
+                mapper_.esdf_layer().numBlocks());
       for (const Index3D& projective_idx :
            mapper_.layers().get<LayerType>().getAllBlockIndices()) {
         EXPECT_TRUE(mapper_.esdf_layer().isBlockAllocated(projective_idx));
@@ -146,9 +145,9 @@ struct MapperTestBlocksInLayers : public testing::Test {
 
     // In case of 2d Esdf mode the test has to be more involved.
     if (ParametrizationStruct::getEsdfMode() == EsdfMode::k2D) {
-      EXPECT_GE(mapper_.layers().get<LayerType>().numAllocatedBlocks(),
-                mapper_.esdf_layer().numAllocatedBlocks());
-      EXPECT_GT(mapper_.esdf_layer().numAllocatedBlocks(), 0);
+      EXPECT_GE(mapper_.layers().get<LayerType>().numBlocks(),
+                mapper_.esdf_layer().numBlocks());
+      EXPECT_GT(mapper_.esdf_layer().numBlocks(), 0);
 
       // Get the slice bound indices.
       const float block_size = mapper_.esdf_layer().block_size();
@@ -202,11 +201,24 @@ struct MapperTestBlocksInLayers : public testing::Test {
     // Not for every occupancy/tsdf block we have a mesh block.
     // NOTE: We only produce a mesh when the layer type is tsdf.
     if (std::is_same<LayerType, TsdfLayer>::value) {
-      EXPECT_GE(mapper_.layers().get<LayerType>().numAllocatedBlocks(),
-                mapper_.mesh_layer().numAllocatedBlocks());
-      EXPECT_GT(mapper_.mesh_layer().numAllocatedBlocks(), 0);
+      // Checks for color mesh layer.
+      EXPECT_GE(mapper_.layers().get<LayerType>().numBlocks(),
+                mapper_.color_mesh_layer().numBlocks());
+      EXPECT_GT(mapper_.color_mesh_layer().numBlocks(), 0);
       for (const Index3D& mesh_idx :
-           mapper_.mesh_layer().getAllBlockIndices()) {
+           mapper_.color_mesh_layer().getAllBlockIndices()) {
+        // For every mesh block there should be a block in the
+        // projective layer.
+        EXPECT_TRUE(
+            mapper_.layers().get<LayerType>().isBlockAllocated(mesh_idx));
+      }
+
+      // Checks for the feature mesh layer.
+      EXPECT_GE(mapper_.layers().get<LayerType>().numBlocks(),
+                mapper_.feature_mesh_layer().numBlocks());
+      EXPECT_GT(mapper_.feature_mesh_layer().numBlocks(), 0);
+      for (const Index3D& mesh_idx :
+           mapper_.feature_mesh_layer().getAllBlockIndices()) {
         // For every mesh block there should be a block in the
         // projective layer.
         EXPECT_TRUE(
@@ -217,7 +229,7 @@ struct MapperTestBlocksInLayers : public testing::Test {
 
   /// @return The number of allocated blocks in the projective layer.
   int getNumAllocatedProjectiveBlocks() {
-    return mapper_.layers().get<LayerType>().numAllocatedBlocks();
+    return mapper_.layers().get<LayerType>().numBlocks();
   }
 
   /// @brief Get the projective layer type from the class parametrization.
@@ -250,8 +262,10 @@ struct MapperTestBlocksInLayers : public testing::Test {
     for (const Index3D& idx :
          mapper_.layers().get<LayerType>().getAllBlockIndices()) {
       mapper_.color_layer().allocateBlockAtIndex(idx);
+      mapper_.feature_layer().allocateBlockAtIndex(idx);
     }
-    mapper_.updateMesh(update_full_layer);
+    mapper_.updateColorMesh(update_full_layer);
+    mapper_.updateFeatureMesh(update_full_layer);
     if (ParametrizationStruct::hasFreespaceLayer()) {
       mapper_.updateFreespace(Time(0), update_full_layer);
     }
@@ -304,7 +318,7 @@ TYPED_TEST(MapperTestBlocksInLayers, LoadFromFrame) {
 
 TYPED_TEST(MapperTestBlocksInLayers, ClearOutsideRadius) {
   // Load a layer (tsdf/occupancy) from a scene and update color/esdf/mesh.
-  const int num_allocated_blocks = this->loadLayersFromScene();
+  const int num_blocks = this->loadLayersFromScene();
 
   // Deleting blocks outside a radius.
   const Vector3f sphere_center(0.0f, 0.0f, 0.0f);
@@ -314,12 +328,12 @@ TYPED_TEST(MapperTestBlocksInLayers, ClearOutsideRadius) {
   // Again, all layers should have the same block count.
   this->testBlocksInLayers();
   // After clearing some blocks, we should have less than at the beginning.
-  EXPECT_LT(this->getNumAllocatedProjectiveBlocks(), num_allocated_blocks);
+  EXPECT_LT(this->getNumAllocatedProjectiveBlocks(), num_blocks);
 }
 
 TYPED_TEST(MapperTestBlocksInLayers, DecayProjectiveLayer) {
   // Load a layer (tsdf/occupancy) from a scene and update color/esdf/mesh.
-  const int num_allocated_blocks = this->loadLayersFromScene();
+  const int num_blocks = this->loadLayersFromScene();
 
   // Next we setup occupancy/tsdf decay to decay some of the blocks (but not
   // all).
@@ -352,7 +366,7 @@ TYPED_TEST(MapperTestBlocksInLayers, DecayProjectiveLayer) {
   // We haven't decayed yet, so we expect to have the same number of blocks as
   // in the beginning.
   this->testBlocksInLayers();
-  EXPECT_EQ(this->getNumAllocatedProjectiveBlocks(), num_allocated_blocks);
+  EXPECT_EQ(this->getNumAllocatedProjectiveBlocks(), num_blocks);
 
   // Do the decay.
   this->decayLayers();
@@ -363,7 +377,7 @@ TYPED_TEST(MapperTestBlocksInLayers, DecayProjectiveLayer) {
   this->testBlocksInLayers();
 
   // After decaying some blocks, we should have less than at the beginning.
-  EXPECT_LT(this->getNumAllocatedProjectiveBlocks(), num_allocated_blocks);
+  EXPECT_LT(this->getNumAllocatedProjectiveBlocks(), num_blocks);
 }
 
 int main(int argc, char** argv) {

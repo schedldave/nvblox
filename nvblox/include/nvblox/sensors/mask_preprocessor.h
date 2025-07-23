@@ -21,7 +21,6 @@ limitations under the License.
 #include "nvblox/core/types.h"
 #include "nvblox/sensors/image.h"
 #include "nvblox/sensors/npp_image_operations.h"
-#include "nvblox/utils/logging.h"
 
 namespace nvblox {
 namespace image {

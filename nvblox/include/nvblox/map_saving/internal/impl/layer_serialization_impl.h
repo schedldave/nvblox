@@ -58,8 +58,10 @@ std::unique_ptr<VoxelBlockLayer<VoxelType>> deserializeLayerParameters(
   float block_size = it->second;
   // Create a layer.
   std::unique_ptr<VoxelBlockLayer<VoxelType>> layer_ptr;
+  BlockMemoryPoolParams pool_params;
+  pool_params.memory_type = memory_type;
   layer_ptr.reset(new VoxelBlockLayer<VoxelType>(
-      block_size / VoxelBlock<VoxelType>::kVoxelsPerSide, memory_type));
+      block_size / VoxelBlock<VoxelType>::kVoxelsPerSide, pool_params));
 
   return layer_ptr;
 }

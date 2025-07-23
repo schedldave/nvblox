@@ -1,5 +1,5 @@
 [WARN] [1716384276.668905579] [visual_slam_node]: Delta between current and previous frame [66.825472 ms] is above threshold [34.000000 ms]
-[INFO] [1716384282.429080457] [nvblox_node]: Timing statistics: 
+[INFO] [1716384282.429080457] [nvblox_node]: Timing statistics:
 
 NVBlox Timings (in seconds)
 namespace/tag - NumSamples - TotalTime - (Mean +- StdDev) - [Min,Max]
@@ -23,10 +23,10 @@ view_calculator/raycast/output                                	   1162	00.125987
 view_calculator/raycast/setup                                 	   1162	00.014702	(00.000013 +- 00.000004)	[00.000004,00.000228]
 -----------
 
-[INFO] [1716384282.429736344] [nvblox_node]: Rates statistics: 
+[INFO] [1716384282.429736344] [nvblox_node]: Rates statistics:
 
 NVBlox Rates (in Hz)
-namespace/tag - NumSamples (Window Length) - Mean 
+namespace/tag - NumSamples (Window Length) - Mean
 -----------
 ros/color               	95     	5.0
 ros/depth               	100    	29.9
@@ -37,10 +37,10 @@ mapper/stream_mesh      	90     	4.7
 ros/tick                	100    	100.1
 -----------
 
-[INFO] [1716384282.429775033] [nvblox_node]: Delay statistics: 
+[INFO] [1716384282.429775033] [nvblox_node]: Delay statistics:
 
 NVBlox Delays
-namespace/tag - NumSamples (Window Length) - Mean Delay (seconds) 
+namespace/tag - NumSamples (Window Length) - Mean Delay (seconds)
 -----------
 ros/esdf_integration       	100    	0.046
 ros/color_image_integration	95     	0.061
@@ -49,14 +49,14 @@ ros/color_image_callback   	100    	0.051
 ros/depth_image_callback   	100    	0.000
 -----------
 
-[INFO] [1716384282.498836328] [nvblox_node]: Depth Statistics: 
+[INFO] [1716384282.498836328] [nvblox_node]: Depth Statistics:
 avg=33.599099, min=0.000000, max=74.999464, std_dev=12.224970, count=596
 [INFO] [ros2-1]: process has finished cleanly [pid 27967]
 [INFO] [launch]: process[ros2-1] was required: shutting down launched system
 [INFO] [component_container_mt-2]: sending signal 'SIGINT' to process[component_container_mt-2]
 [INFO] [1716384282.866420188] [rclcpp]: signal_handler(signum=2)
 [INFO] [1716384282.888055340] [visual_slam_node]: cuVSLAM tracker was destroyed
-[INFO] [1716384282.901084214] [nvblox_node]: Timing statistics: 
+[INFO] [1716384282.901084214] [nvblox_node]: Timing statistics:
 
 NVBlox Timings (in seconds)
 namespace/tag - NumSamples - TotalTime - (Mean +- StdDev) - [Min,Max]
@@ -137,7 +137,7 @@ view_calculator/raycast/raycast_pixels_kernel                 	   1176	00.031851
 view_calculator/raycast/setup                                 	   1176	00.014895	(00.000013 +- 00.000004)	[00.000004,00.000228]
 -----------
 
-[INFO] [1716384282.901150192] [nvblox_node]: Rates statistics: 
+[INFO] [1716384282.901150192] [nvblox_node]: Rates statistics:
 
 NVBlox Rates (in Hz)
 namespace/tag - NumSamples (Window Length) - Mean namespace/tag - NumSamples (Window Length) - Mean
@@ -150,10 +150,10 @@ mapper/stream_mesh      	92     	4.7
 ros/tick                	100    	100.0
 -----------
 
-[INFO] [1716384282.901160665] [nvblox_node]: Delay statistics: 
+[INFO] [1716384282.901160665] [nvblox_node]: Delay statistics:
 
 NVBlox Delays
-namespace/tag - NumSamples (Window Length) - Mean Delay (seconds) 
+namespace/tag - NumSamples (Window Length) - Mean Delay (seconds)
 -----------
 ros/esdf_integration       	100    	0.046
 ros/color_image_integration	97     	0.061

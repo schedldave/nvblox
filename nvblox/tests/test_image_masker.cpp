@@ -55,8 +55,8 @@ TEST_P(ParameterizedImageMaskerTest, RandomMask) {
   const Camera mask_camera =
       getTestCamera(cols + size_addon, rows + size_addon);
 
-  const Color valid_pixel_color(255, 255, 255, 255);
-  const Color invalid_pixel_color(0, 0, 0, 0);
+  const Color valid_pixel_color(255, 255, 255);
+  const Color invalid_pixel_color(0, 0, 0);
 
   // Generate random mask
   for (int row_idx = 0; row_idx < mask.rows(); row_idx++) {

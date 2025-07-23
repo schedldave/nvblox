@@ -20,7 +20,6 @@ limitations under the License.
 #include "nvblox/core/cuda_stream.h"
 #include "nvblox/core/iterator.h"
 #include "nvblox/core/types.h"
-#include "nvblox/utils/logging.h"
 
 namespace nvblox {
 

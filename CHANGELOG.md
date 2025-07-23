@@ -4,7 +4,18 @@ All releases of the nvblox library will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [v.0.0.8] - Date: 2025-06-17
+
+- Bugfix in blocks-to-update to prevent occasional segfaults for high-res reconstructions. (#898)
+- Switch docs framework to Sphinx (#864)
+- Remove alpha channel from input RGB images (#878)
+- Fix stdgpu export (#860)
+- Support for building on Ubuntu 22 and 24 (#826, #848)
+- Use ccache for imporved build speed (#811)
+- Add support for deep feature integration (#793, #854)
+- Add nvblox torch module (#691)
+- Add pre-commit for automatic lint checking (#766)
+- GPU version of ground plane estimator (#763)
 
 ## [v.0.0.7] - Date: 2024-12-05
 

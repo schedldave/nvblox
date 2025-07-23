@@ -52,7 +52,8 @@ void ProjectiveTsdfIntegratorCPU::updateBlocks(
           }
 
           float depth = -1.0;
-          if (!interpolation::interpolate2DClosest(depth_frame, u_C, &depth)) {
+          if (!interpolation::interpolate2DClosest(
+                  DepthImageConstView(depth_frame), u_C, &depth)) {
             continue;
           }
 

@@ -236,7 +236,7 @@ class MultiMapper {
 
   /// @brief Updating the mesh layers of the mappers depending on the mapping
   /// type.
-  void updateMesh();
+  void updateColorMesh();
 
   /// Access to one of the mappers
   const Mapper& background_mapper() const { return *background_mapper_.get(); }
@@ -298,12 +298,9 @@ class MultiMapper {
   ImageMasker image_masker_;
   DepthImage depth_frame_background_{MemoryType::kDevice};
   DepthImage depth_frame_foreground_{MemoryType::kDevice};
-  ColorImage color_frame_background_{MemoryType::kDevice};
-  ColorImage color_frame_foreground_{MemoryType::kDevice};
 
   // Mask overlays used as debug outputs
   ColorImage foreground_depth_overlay_{MemoryType::kDevice};
-  ColorImage foreground_color_overlay_{MemoryType::kDevice};
 
   // The two mappers to which the frames are integrated.
   std::shared_ptr<Mapper> foreground_mapper_;

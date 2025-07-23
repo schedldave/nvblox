@@ -101,7 +101,7 @@ TsdfZeroCrossingsExtractor::computeZeroCrossingsFromAboveOnGPU(
 
   constexpr int kVoxelsPerSide = TsdfBlock::kVoxelsPerSide;
   const dim3 threads_per_block(kVoxelsPerSide, kVoxelsPerSide, kVoxelsPerSide);
-  const int num_blocks = tsdf_layer.numAllocatedBlocks();
+  const int num_blocks = tsdf_layer.numBlocks();
   if (num_blocks == 0) {
     return std::nullopt;
   }

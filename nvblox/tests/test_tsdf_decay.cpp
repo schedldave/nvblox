@@ -36,7 +36,7 @@ class TsdfDecayIntegratorTest : public ::testing::Test {
     // Generate a TSDF layer
     scene_ = test_utils::getSphereInBox();
     scene_.generateLayerFromScene(kTruncationDistanceMeters, &layer_);
-    EXPECT_GT(layer_.numAllocatedBlocks(), 0);
+    EXPECT_GT(layer_.numBlocks(), 0);
   }
 
   primitives::Scene scene_;
@@ -61,7 +61,7 @@ TEST(TsdfDecayIntegrator, EmptyLayer) {
   const std::vector<Index3D> dellocated_blocks =
       decay_integrator.decay(&layer, CudaStreamOwning());
 
-  EXPECT_EQ(layer.numAllocatedBlocks(), 0);
+  EXPECT_EQ(layer.numBlocks(), 0);
   EXPECT_TRUE(dellocated_blocks.empty());
 }
 
@@ -189,10 +189,9 @@ TEST_F(TsdfDecayIntegratorTest, DecayUntilRemoved) {
   TsdfDecayIntegrator decay_integrator;
   constexpr size_t kMaxNumIterations{1000};
   size_t num_iterations = 0;
-  const int num_allocated_blocks = layer_.numAllocatedBlocks();
+  const int num_blocks = layer_.numBlocks();
   int num_dellocated_blocks = 0;
-  while (layer_.numAllocatedBlocks() > 0 &&
-         num_iterations < kMaxNumIterations) {
+  while (layer_.numBlocks() > 0 && num_iterations < kMaxNumIterations) {
     const auto decayed_this_iteration =
         decay_integrator.decay(&layer_, CudaStreamOwning());
     num_dellocated_blocks += decayed_this_iteration.size();
@@ -200,8 +199,8 @@ TEST_F(TsdfDecayIntegratorTest, DecayUntilRemoved) {
   }
 
   EXPECT_GT(num_iterations, 0);
-  EXPECT_EQ(layer_.numAllocatedBlocks(), 0);
-  EXPECT_EQ(num_allocated_blocks, num_dellocated_blocks);
+  EXPECT_EQ(layer_.numBlocks(), 0);
+  EXPECT_EQ(num_blocks, num_dellocated_blocks);
 }
 
 bool isAtLeastOneVoxelAboveWeight(const TsdfLayer& tsdf_layer,
@@ -260,7 +259,7 @@ TEST_F(TsdfDecayIntegratorTest, TsdfDecayToFree) {
     ++num_iterations;
     num_dellocated_blocks += deallocated_this_iteration.size();
   }
-  EXPECT_GT(layer_.numAllocatedBlocks(), 0);
+  EXPECT_GT(layer_.numBlocks(), 0);
 
   // All voxels/blocks are fully decayed: Check
   // - Weight fully decayed
@@ -348,7 +347,7 @@ TEST_F(TsdfDecayIntegratorTest, TsdfDecayExcludeView) {
   const float kMaxViewDistanceM = kMaxDist;
   const std::vector<Index3D> deallocated_blocks = decay_integrator.decay(
       &layer_,
-      ViewBasedInclusionData(T_L_C, camera_, &depth_frame, kMaxViewDistanceM,
+      ViewBasedInclusionData(T_L_C, camera_, depth_frame, kMaxViewDistanceM,
                              kTruncationDistanceMeters),
       CudaStreamOwning());
   // We expect that no blocks are deallocated after a single decay.

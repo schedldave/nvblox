@@ -179,14 +179,14 @@ TEST_F(FreespaceIntegratorTest, FreespacePlane) {
       5 * time_step_ms);
   freespace_integrator.min_consecutive_occupancy_duration_for_reset_ms(
       10 * time_step_ms);
-  // TODO(remos): Also implement a test that does neighborhood checking.
   freespace_integrator.check_neighborhood(false);
 
   // Integrate the depth frame and update the freespace layer.
   std::vector<Index3D> updated_blocks;
   const Time start_time_ms{42};  // almost random
-  tsdf_integrator.integrateFrame(depth_frame, T_L_C, camera_, &tsdf_layer,
-                                 &updated_blocks);
+  tsdf_integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+      camera_, &tsdf_layer, &updated_blocks);
   freespace_integrator.updateFreespaceLayer(updated_blocks, start_time_ms,
                                             tsdf_layer, {}, &freespace_layer);
   const std::vector<Index3D> block_indices = tsdf_layer.getAllBlockIndices();
@@ -236,8 +236,9 @@ TEST_F(FreespaceIntegratorTest, FreespacePlane) {
 
   // Update tsdf and freespace layers.
   Time plane_added_time_ms = start_time_ms + 10 * time_step_ms;
-  tsdf_integrator.integrateFrame(depth_frame, T_L_C, camera_, &tsdf_layer,
-                                 &updated_blocks);
+  tsdf_integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+      camera_, &tsdf_layer, &updated_blocks);
   freespace_integrator.updateFreespaceLayer(updated_blocks, plane_added_time_ms,
                                             tsdf_layer, {}, &freespace_layer);
 
@@ -330,7 +331,7 @@ TEST_F(FreespaceIntegratorTest, ViewExclusion) {
   const float weight = 1.0f;
   createTsdfLayerCube(distance, weight, kEnvironmentMaxBlockExtent,
                       &tsdf_layer);
-  EXPECT_GT(tsdf_layer.numAllocatedBlocks(), 0);
+  EXPECT_GT(tsdf_layer.numBlocks(), 0);
 
   // Make a camera view
   constexpr float kDepthM = 5.0;
@@ -340,7 +341,7 @@ TEST_F(FreespaceIntegratorTest, ViewExclusion) {
       depth_image(row, col) = kDepthM;
     }
   }
-  ViewBasedInclusionData view(Transform::Identity(), camera_, &depth_image);
+  ViewBasedInclusionData view(Transform::Identity(), camera_, depth_image);
 
   // Freespace layer + integrator
   auto cuda_stream = std::make_shared<CudaStreamOwning>();
@@ -389,6 +390,61 @@ TEST_F(FreespaceIntegratorTest, ViewExclusion) {
   EXPECT_GT(num_non_freespace_voxels, 0);
 }
 
+TEST_F(FreespaceIntegratorTest, CheckNeighbohood) {
+  // Create a TSDF layer with one block
+  TsdfLayer tsdf_layer(voxel_size_m_, MemoryType::kUnified);
+  const Index3D block_index(0, 0, 0);
+  tsdf_layer.allocateBlockAtIndex(block_index);
+  TsdfBlock::Ptr block_ptr = tsdf_layer.getBlockAtIndex(block_index);
+
+  // Create integrator + layer
+  auto cuda_stream = std::make_shared<CudaStreamOwning>();
+  FreespaceIntegrator freespace_integrator1(cuda_stream);
+  freespace_integrator1.check_neighborhood(true);
+  FreespaceLayer freespace_layer1(voxel_size_m_, MemoryType::kUnified);
+
+  // Set all voxels to free
+  const float tsdf_distance =
+      freespace_integrator1.max_tsdf_distance_for_occupancy_m() + 1E-3;
+  callFunctionOnAllVoxels<TsdfVoxel>(
+      &tsdf_layer,
+      [tsdf_distance](const Index3D&, const Index3D&, TsdfVoxel* voxel) {
+        voxel->weight = 1E6;
+        voxel->distance = tsdf_distance;
+      });
+
+  const auto all_blocks = tsdf_layer.getAllBlockIndices();
+  freespace_integrator1.updateFreespaceLayer(all_blocks, nvblox::Time(1),
+                                             tsdf_layer, {}, &freespace_layer1);
+  freespace_integrator1.updateFreespaceLayer(all_blocks, nvblox::Time(1000000),
+                                             tsdf_layer, {}, &freespace_layer1);
+
+  // Center voxel should be set to freespace.
+  int x = 3, y = 3, z = 3;
+  ASSERT_TRUE(freespace_layer1.getBlockAtIndex(block_index)
+                  ->voxels[x][y][z]
+                  .is_high_confidence_freespace);
+
+  // Run with another integrator and set a neighboring TSDF voxel to occupied
+  tsdf_layer.getBlockAtIndex(block_index)
+      ->voxels[x - 1][y - 1][z - 1]
+      .distance = 0.F;
+
+  FreespaceIntegrator freespace_integrator2(cuda_stream);
+  freespace_integrator2.check_neighborhood(true);
+  FreespaceLayer freespace_layer2(voxel_size_m_, MemoryType::kUnified);
+
+  freespace_integrator2.updateFreespaceLayer(all_blocks, nvblox::Time(1),
+                                             tsdf_layer, {}, &freespace_layer2);
+  freespace_integrator2.updateFreespaceLayer(all_blocks, nvblox::Time(1000000),
+                                             tsdf_layer, {}, &freespace_layer2);
+
+  // Center voxel should *not* be freespace due to one of the neighbors being
+  // occupied
+  ASSERT_FALSE(freespace_layer2.getBlockAtIndex(block_index)
+                   ->voxels[x][y][z]
+                   .is_high_confidence_freespace);
+}
 int main(int argc, char** argv) {
   FLAGS_alsologtostderr = true;
   google::InitGoogleLogging(argv[0]);

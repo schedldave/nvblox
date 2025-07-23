@@ -17,7 +17,6 @@ limitations under the License.
 #include <gflags/gflags.h>
 #include "nvblox/gflags_param_loading/fuser_params_from_gflags.h"
 #include "nvblox/gflags_param_loading/mapper_params_from_gflags.h"
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/core/parameter_tree.h"
 #include "nvblox/executables/fuser.h"
@@ -111,9 +110,9 @@ int Fuser::run() {
 
   if (!mesh_output_path_.empty()) {
     LOG(INFO) << "Generating the mesh.";
-    multi_mapper_->updateMesh();
+    multi_mapper_->updateColorMesh();
     LOG(INFO) << "Outputting mesh ply file to " << mesh_output_path_;
-    outputMeshPly();
+    outputColorMeshPly();
   }
 
   if (!esdf_output_path_.empty()) {
@@ -206,7 +205,7 @@ datasets::DataLoadResult Fuser::integrateFrame(const int frame_number) {
     if ((frame_number + 1) % mesh_frame_subsampling_ == 0) {
       timing::Timer timer_mesh("fuser/mesh");
       timing::Rates::tick("fuser/mesh");
-      multi_mapper_->updateMesh();
+      multi_mapper_->updateColorMesh();
     }
   }
 
@@ -263,9 +262,9 @@ bool Fuser::outputESDFPointcloudPly() {
   return static_mapper()->saveEsdfAsPly(esdf_output_path_);
 }
 
-bool Fuser::outputMeshPly() {
+bool Fuser::outputColorMeshPly() {
   timing::Timer timer_write("fuser/mesh/write");
-  return static_mapper()->saveMeshAsPly(mesh_output_path_);
+  return static_mapper()->saveColorMeshAsPly(mesh_output_path_);
 }
 
 bool Fuser::outputTimingsToFile() {
@@ -305,10 +304,11 @@ std::shared_ptr<const Transform> Fuser::getColorCameraPose() const {
   return T_L_C_;
 }
 
-std::shared_ptr<const SerializedMeshLayer> Fuser::getSerializedMesh() const {
+std::shared_ptr<SerializedColorMeshLayer> Fuser::getSerializedColorMesh()
+    const {
   multi_mapper_->background_mapper()->serializeSelectedLayers(
-      LayerType::kMesh, kLayerStreamerUnlimitedBandwidth);
-  return multi_mapper_->background_mapper()->serializedMeshLayer();
+      LayerType::kColorMesh, kLayerStreamerUnlimitedBandwidth);
+  return multi_mapper_->background_mapper()->serializedColorMeshLayer();
 }
 
 }  //  namespace nvblox

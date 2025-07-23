@@ -28,7 +28,7 @@ struct UpdateTsdfVoxelFunctor {
 
   // Vector3f p_voxel_C, float depth, TsdfVoxel* voxel_ptr
   __device__ bool operator()(const float surface_depth_measured,
-                             const float voxel_depth_m, const bool is_masked,
+                             const float voxel_depth_m, const bool is_active,
                              TsdfVoxel* voxel_ptr) {
     // Ignore invalid (negative) depth measurements.
     if (surface_depth_measured <= 0.F) {
@@ -50,10 +50,10 @@ struct UpdateTsdfVoxelFunctor {
       return false;
     }
 
-    // Handle unmasked depth pixels. We do not want to integrate
+    // Handle inactive depth pixels. We do not want to integrate
     // them, but we still want to clear any voxels in front of the surface. We
     // therefore integrate only up until the positive truncation distance.
-    if (!is_masked && voxel_to_surface_distance < truncation_distance_m_) {
+    if (!is_active && voxel_to_surface_distance < truncation_distance_m_) {
       return false;
     }
 

@@ -91,6 +91,12 @@ void initializeBlocksAsync(host_vector<BlockType*>& blocks,
                            const CudaStream& cuda_stream,
                            const MemoryType memory_type = MemoryType::kHost);
 
+// Return the max number of cuda threads needed to process a VoxelBlock
+template <typename VoxelType>
+constexpr int kMaxNumThreadsPerBlock() {
+  return VoxelBlock<VoxelType>::kNumVoxels;
+}
+
 }  // namespace nvblox
 
 #include "nvblox/map/internal/impl/blox_impl.h"

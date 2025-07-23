@@ -33,4 +33,10 @@ template void VoxelBlockLayer<ColorVoxel>::getVoxelsGPU(
     device_vector<ColorVoxel>* voxels_ptr,
     device_vector<bool>* success_flags_ptr) const;
 
+template const std::shared_ptr<ColorMesh> MeshBlockLayer<Color>::getMesh(
+    const CudaStream& cuda_stream) const;
+
+template const std::shared_ptr<FeatureMesh>
+MeshBlockLayer<FeatureArray>::getMesh(const CudaStream& cuda_stream) const;
+
 }  // namespace nvblox

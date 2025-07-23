@@ -15,8 +15,6 @@ limitations under the License.
 */
 #pragma once
 
-#include "nvblox/utils/logging.h"
-
 #include <filesystem>
 #include <fstream>
 

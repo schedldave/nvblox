@@ -115,8 +115,8 @@ class ImageMasker {
   float occlusion_threshold_m_ = 0.25;
   float depth_masked_image_invalid_pixel_ = -1.0;
   float depth_unmasked_image_invalid_pixel_ = -1.0;
-  Color color_masked_image_invalid_pixel_ = Color(0, 0, 0, 0);
-  Color color_unmasked_image_invalid_pixel_ = Color(0, 0, 0, 0);
+  Color color_masked_image_invalid_pixel_ = Color(0, 0, 0);
+  Color color_unmasked_image_invalid_pixel_ = Color(0, 0, 0);
 
   std::shared_ptr<CudaStream> cuda_stream_;
 };

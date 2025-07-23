@@ -17,24 +17,18 @@ limitations under the License.
 
 #include <string>
 
+#include "nvblox/map/common_names.h"
 #include "nvblox/map/layer.h"
 #include "nvblox/mesh/mesh_block.h"
 
 namespace nvblox {
 namespace io {
 
-// Combines mesh blocks in a layer into a single list of vertices, triangles,
-// and normals.
-void combineMeshBlocks(const BlockLayer<MeshBlock>& layer,
-                       std::vector<Vector3f>* vertices_ptr,
-                       std::vector<Vector3f>* normals_ptr,
-                       std::vector<int>* triangles_ptr);
+bool outputColorMeshLayerToPly(const ColorMeshLayer& layer,
+                               const std::string& filename);
 
-bool outputMeshLayerToPly(const BlockLayer<MeshBlock>& layer,
-                          const std::string& filename);
-
-bool outputMeshLayerToPly(const BlockLayer<MeshBlock>& layer,
-                          const char* filename);
+bool outputColorMeshLayerToPly(const ColorMeshLayer& layer,
+                               const char* filename);
 
 }  // namespace io
 }  // namespace nvblox

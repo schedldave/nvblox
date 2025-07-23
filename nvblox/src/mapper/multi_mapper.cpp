@@ -295,8 +295,8 @@ void MultiMapper::integrateColor(const ColorImage& color_frame,
 }
 
 void MultiMapper::integrateColor(const ColorImage& color_frame,
-                                 const MonoImage& mask, const Transform& T_L_C,
-                                 const Camera& camera) {
+                                 const MonoImage& foreground_mask,
+                                 const Transform& T_L_C, const Camera& camera) {
   CHECK(isHumanMapping(mapping_type_))
       << "Passing a mask to integrateColor is only valid for human "
          "mapping.";
@@ -310,25 +310,26 @@ void MultiMapper::integrateColor(const ColorImage& color_frame,
   // We do this again incase the mask is not synced with the depth mask
   if (params_.remove_small_connected_components) {
     mask_preprocessor_.removeSmallConnectedComponents(
-        mask, params_.connected_mask_component_size_threshold,
+        foreground_mask, params_.connected_mask_component_size_threshold,
         &cleaned_semantic_mask_);
   } else {
-    cleaned_semantic_mask_.copyFromAsync(mask, *cuda_stream_);
+    cleaned_semantic_mask_.copyFromAsync(foreground_mask, *cuda_stream_);
   }
 
-  // Split into background and foreground color frame
-  image_masker_.splitImageOnGPU(
-      color_frame, cleaned_semantic_mask_, &color_frame_background_,
-      &color_frame_foreground_, &foreground_color_overlay_);
-
   // Integrate the frames to the respective layer cake
-  foreground_mapper_->integrateColor(color_frame_foreground_, T_L_C, camera);
-  background_mapper_->integrateColor(color_frame_background_, T_L_C, camera);
+  foreground_mapper_->integrateColor(
+      MaskedColorImageConstView(color_frame, cleaned_semantic_mask_,
+                                MaskMode::kNonInverted),
+      T_L_C, camera);
+  background_mapper_->integrateColor(
+      MaskedColorImageConstView(color_frame, cleaned_semantic_mask_,
+                                MaskMode::kInverted),
+      T_L_C, camera);
 }
 
 void MultiMapper::updateEsdf() {
   std::optional<Plane> maybe_ground_plane = std::nullopt;
-  if (params_.use_ground_plane_estimation) {
+  if (params_.experimental_use_ground_plane_estimation) {
     // We compute the ground plane on the static map to reuse on the dynamic
     // map.
     const TsdfLayer& tsdf_layer = background_mapper_->tsdf_layer();
@@ -354,10 +355,10 @@ void MultiMapper::integrateColor(const ColorImage& color_frame,
   integrateColor(color_frame, T_L_C, camera);
 }
 
-void MultiMapper::updateMesh() {
+void MultiMapper::updateColorMesh() {
   // At the moment we never have a mesh for the foreground mapper as it always
   // uses a occupancy layer.
-  background_mapper_->updateMesh(UpdateFullLayer::kNo);
+  background_mapper_->updateColorMesh(UpdateFullLayer::kNo);
 }
 
 const DepthImage& MultiMapper::getLastDepthFrameBackground() {
@@ -366,17 +367,8 @@ const DepthImage& MultiMapper::getLastDepthFrameBackground() {
 const DepthImage& MultiMapper::getLastDepthFrameForeground() {
   return depth_frame_foreground_;
 }
-const ColorImage& MultiMapper::getLastColorFrameBackground() {
-  return color_frame_background_;
-}
-const ColorImage& MultiMapper::getLastColorFrameForeground() {
-  return color_frame_foreground_;
-}
 const ColorImage& MultiMapper::getLastDepthFrameMaskOverlay() {
   return foreground_depth_overlay_;
-}
-const ColorImage& MultiMapper::getLastColorFrameMaskOverlay() {
-  return foreground_color_overlay_;
 }
 const ColorImage& MultiMapper::getLastDynamicFrameMaskOverlay() {
   return dynamic_detector_.getDynamicOverlayImage();

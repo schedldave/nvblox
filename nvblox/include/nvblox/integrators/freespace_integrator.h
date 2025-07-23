@@ -132,16 +132,9 @@ class FreespaceIntegrator {
       const std::string& name_remap = std::string()) const;
 
  protected:
-  // Use the non-padded kernel for performance gains when check_neighborhood is
-  // disabled
-  void launchNonPaddedKernel(Time update_time_ms, const TsdfLayer& tsdf_layer,
-                             const std::optional<ViewBasedInclusionData>& view,
-                             FreespaceLayer* freespace_layer_ptr);
-
-  // Use the padded kernel when check_neighborhood is enabled.
-  void launchPaddedKernel(Time update_time_ms, const TsdfLayer& tsdf_layer,
-                          const std::optional<ViewBasedInclusionData>& view,
-                          FreespaceLayer* freespace_layer_ptr);
+  void launchKernel(Time update_time_ms,
+                    const std::optional<ViewBasedInclusionData>& view,
+                    FreespaceLayer* freespace_layer_ptr);
 
   // Parameters (see getters for description)
   // Note: See comment behind each parameter for corresponding dynablox
@@ -164,6 +157,12 @@ class FreespaceIntegrator {
   // Block index buffers
   host_vector<Index3D> block_indices_to_update_host_;
   device_vector<Index3D> block_indices_to_update_device_;
+
+  // Block ptr buffers
+  host_vector<FreespaceBlock*> freespace_blocks_to_update_host_;
+  device_vector<FreespaceBlock*> freespace_blocks_to_update_device_;
+  host_vector<const TsdfBlock*> tsdf_blocks_to_update_host_;
+  device_vector<const TsdfBlock*> tsdf_blocks_to_update_device_;
 
   // CUDA stream to process integration on
   std::shared_ptr<CudaStream> cuda_stream_;

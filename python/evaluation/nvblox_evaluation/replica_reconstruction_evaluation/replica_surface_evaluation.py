@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-
 #
 # Copyright 2022 NVIDIA CORPORATION
 #
@@ -18,6 +17,7 @@
 
 from pathlib import Path
 import argparse
+from typing import Optional
 
 import json
 import numpy as np
@@ -25,13 +25,13 @@ import open3d as o3d
 
 from nvblox_evaluation.evaluation_utils import quad_mesh
 from nvblox_evaluation.replica_reconstruction_evaluation.replica_reconstruction import replica_reconstruction
-import nvblox_evaluation.replica_reconstruction_evaluation.replica as replica
-import nvblox_common.surface_evaluation as surface_evaluation
+from nvblox_evaluation.replica_reconstruction_evaluation import replica
+from nvblox_common import surface_evaluation
 
 
 def evaluate_mesh(reconstructed_mesh_path: Path,
                   groundtruth_mesh_path: Path,
-                  output_root_path: Path = None,
+                  output_root_path: Optional[Path] = None,
                   do_error_visualization: bool = True,
                   do_coverage_visualization: bool = False,
                   covered_threshold_m: float = 0.05) -> None:
@@ -63,26 +63,23 @@ def evaluate_mesh(reconstructed_mesh_path: Path,
 
     """
     # Detecting dataset name
-    dataset_name = replica.get_dataset_name_from_groundtruth_mesh_path(
-        groundtruth_mesh_path)
-    print(f"Detected dataset name as: {dataset_name}")
+    dataset_name = replica.get_dataset_name_from_groundtruth_mesh_path(groundtruth_mesh_path)
+    print(f'Detected dataset name as: {dataset_name}')
 
     # Path: Output directory
     output_dir = replica.get_output_dir(dataset_name, output_root_path)
 
     # Load: the reconstructed mesh
-    print(f"Loading the reconstruction at: {reconstructed_mesh_path}")
-    reconstructed_mesh = o3d.io.read_triangle_mesh(
-        str(reconstructed_mesh_path))
+    print(f'Loading the reconstruction at: {reconstructed_mesh_path}')
+    reconstructed_mesh = o3d.io.read_triangle_mesh(str(reconstructed_mesh_path))
 
     # Load: the groundtruth mesh
-    print(f"Loading the groundtruth mesh at: {groundtruth_mesh_path}")
+    print(f'Loading the groundtruth mesh at: {groundtruth_mesh_path}')
     gt_mesh = quad_mesh.load_quad_mesh(groundtruth_mesh_path)
 
     # Calculating: Error
     print('Calculating error')
-    per_vertex_errors = surface_evaluation.calculate_per_vertex_error(
-        reconstructed_mesh, gt_mesh)
+    per_vertex_errors = surface_evaluation.calculate_per_vertex_error(reconstructed_mesh, gt_mesh)
 
     # Calculating: Coverage
     print('Calculating coverage')
@@ -90,13 +87,12 @@ def evaluate_mesh(reconstructed_mesh_path: Path,
         reconstructed_mesh, gt_mesh, covered_threshold_m)
 
     # Error Mesh (reconstructed mesh colored by error)
-    print(f"Coloring an error mesh")
-    error_mesh = surface_evaluation.get_error_mesh(reconstructed_mesh,
-                                                   per_vertex_errors)
+    print('Coloring an error mesh')
+    error_mesh = surface_evaluation.get_error_mesh(reconstructed_mesh, per_vertex_errors)
 
     # Write out the error mesh
     error_mesh_output_path = output_dir / 'error_mesh.ply'
-    print(f"Writing the error mesh to: {error_mesh_output_path}")
+    print(f'Writing the error mesh to: {error_mesh_output_path}')
     o3d.io.write_triangle_mesh(str(error_mesh_output_path), error_mesh)
 
     # Statistics of the per_vertex_errors
@@ -111,15 +107,15 @@ def evaluate_mesh(reconstructed_mesh_path: Path,
         'surface_error_percentile_99': np.percentile(per_vertex_errors, 99),
         'surface_coverage': coverage
     }
-    print("\nReconstructed vertices to GT vertices: error statistics")
-    print("-------------------------------------------------------")
+    print('\nReconstructed vertices to GT vertices: error statistics')
+    print('-------------------------------------------------------')
     for name, value in statistics_dict.items():
-        print(f"{name:<20}{value:0.4f}")
+        print(f'{name:<20}{value:0.4f}')
 
     # Write the results to a JSON
     output_statistics_path = output_dir / 'surface_error_statistics.json'
-    print(f"Writing the error statistics to: {output_statistics_path}")
-    with open(output_statistics_path, "w") as statistics_file:
+    print(f'Writing the error statistics to: {output_statistics_path}')
+    with open(output_statistics_path, 'w', encoding='utf-8') as statistics_file:
         json.dump(statistics_dict, statistics_file, indent=4)
 
     # Write raw errors to a file
@@ -131,62 +127,54 @@ def evaluate_mesh(reconstructed_mesh_path: Path,
     if do_error_visualization:
         o3d.visualization.draw_geometries([error_mesh])
     if do_coverage_visualization:
-        coverage_mesh = surface_evaluation.get_coverage_mesh(
-            gt_mesh.as_open3d, coverage_flags)
+        coverage_mesh = surface_evaluation.get_coverage_mesh(gt_mesh.as_open3d, coverage_flags)
         o3d.visualization.draw_geometries([coverage_mesh])
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="""Reconstruct a mesh from the replica dataset and test it 
+        description="""Reconstruct a mesh from the replica dataset and test it
                        against ground-truth geometry.""")
 
-    parser.add_argument("groundtruth_mesh_path",
-                        type=Path,
-                        help="Path to the groundtruth mesh.")
-    parser.add_argument("reconstructed_mesh_path",
+    parser.add_argument('groundtruth_mesh_path', type=Path, help='Path to the groundtruth mesh.')
+    parser.add_argument('reconstructed_mesh_path',
                         type=Path,
                         nargs='?',
-                        help="Path to the mesh to evaluate.")
-    parser.add_argument("--output_root_path",
+                        help='Path to the mesh to evaluate.')
+    parser.add_argument('--output_root_path',
                         type=Path,
-                        help="Path to the directory in which to save results.")
+                        help='Path to the directory in which to save results.')
+    parser.add_argument('--dont_visualize_error_mesh',
+                        dest='do_error_visualization',
+                        action='store_const',
+                        const=False,
+                        default=True,
+                        help='Flag indicating if we should visualize the error mesh.')
+    parser.add_argument('--do_coverage_visualization',
+                        dest='do_coverage_visualization',
+                        action='store_const',
+                        const=True,
+                        default=False,
+                        help='Flag indicating if we should display the coverage mesh.')
     parser.add_argument(
-        "--dont_visualize_error_mesh",
-        dest="do_error_visualization",
-        action='store_const',
-        const=False,
-        default=True,
-        help="Flag indicating if we should visualize the error mesh.")
-    parser.add_argument(
-        "--do_coverage_visualization",
-        dest="do_coverage_visualization",
-        action='store_const',
-        const=True,
-        default=False,
-        help="Flag indicating if we should display the coverage mesh.")
-    parser.add_argument(
-        "--fuse_replica_binary_path",
+        '--fuse_replica_binary_path',
         type=Path,
-        help=
-        "Path to the fuse_replica binary. If not passed we search the standard build folder location."
-    )
+        help='Path to the fuse_replica binary. If not passed we search the standard build \
+            folder location.')
     parser.add_argument(
-        "--covered_threshold_m",
+        '--covered_threshold_m',
         type=Path,
         default=0.05,
-        help=
-        "Distance at which we consider a vertex in the groundtruth mesh covered by a vertex in the reconstructed mesh. Defaults to 0.05."
-    )
+        help='Distance at which we consider a vertex in the groundtruth mesh covered \
+            by a vertex in the reconstructed mesh. Defaults to 0.05.')
 
     args = parser.parse_args()
 
     # If no reconstruction is passed in, build one
     if args.reconstructed_mesh_path is None:
         args.reconstructed_mesh_path, _ = replica_reconstruction(
-            replica.get_dataset_root_from_groundtruth_mesh_path(
-                args.groundtruth_mesh_path),
+            replica.get_dataset_root_from_groundtruth_mesh_path(args.groundtruth_mesh_path),
             output_root_path=args.output_root_path,
             fuse_replica_binary_path=args.fuse_replica_binary_path)
 

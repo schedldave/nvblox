@@ -48,10 +48,19 @@ TAGS
 **/*.egg-info
 **/__pycache__
 **/.hypothesis/*
+*venv*
 
 # Documentation
 *docs/_build
 *docs/doxyoutput
 *docs/api
 
+# Test artifacts
+nvblox/tests/*.png
+nvblox/tests/*.nvblx
 
+# Built py distribution
+nvblox_torch/dist
+
+# Generated version file
+nvblox_torch/nvblox_torch/_version.py

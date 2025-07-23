@@ -21,9 +21,11 @@ limitations under the License.
 #include "nvblox/datasets/3dmatch.h"
 #include "nvblox/executables/fuser.h"
 #include "nvblox/io/image_io.h"
+#include "nvblox/primitives/scene.h"
 #include "nvblox/sensors/mask_preprocessor.h"
 #include "nvblox/sensors/npp_image_operations.h"
 #include "nvblox/serialization/mesh_serializer_gpu.h"
+#include "nvblox/tests/integrator_utils.h"
 #include "nvblox/tests/utils.h"
 
 namespace nvblox {
@@ -81,7 +83,7 @@ void benchmarkAll(benchmark::State& state) {
   for (auto _ : state) {
     mapper->integrateDepth(data.depth_frame, data.T_L_C, data.camera);
     mapper->integrateColor(data.color_frame, data.T_L_C, data.camera);
-    mapper->updateMesh();
+    mapper->updateColorMesh();
     mapper->updateEsdf();
   }
 }
@@ -114,7 +116,7 @@ void benchmarkIntegrateColor(benchmark::State& state) {
 }
 BENCHMARK(benchmarkIntegrateColor)->Unit(benchmark::kMillisecond);
 
-void benchmarkUpdateMesh(benchmark::State& state) {
+void benchmarkUpdateColorMesh(benchmark::State& state) {
   std::call_once(init_glog_flag, []() { google::InitGoogleLogging(""); });
   const FrameData data = readFrameData();
   auto mapper = createMapper();
@@ -125,10 +127,10 @@ void benchmarkUpdateMesh(benchmark::State& state) {
     mapper->integrateColor(data.color_frame, data.T_L_C, data.camera);
     state.ResumeTiming();
 
-    mapper->updateMesh();
+    mapper->updateColorMesh();
   }
 }
-BENCHMARK(benchmarkUpdateMesh)->Unit(benchmark::kMillisecond);
+BENCHMARK(benchmarkUpdateColorMesh)->Unit(benchmark::kMillisecond);
 
 void benchmarkUpdateEsdf(benchmark::State& state) {
   std::call_once(init_glog_flag, []() { google::InitGoogleLogging(""); });
@@ -150,7 +152,7 @@ void benchmarkSerializeMesh(benchmark::State& state) {
   std::call_once(init_glog_flag, []() { google::InitGoogleLogging(""); });
   const FrameData data = readFrameData();
   auto mapper = createMapper();
-  MeshSerializerGpu serializer;
+  ColorMeshSerializerGpu serializer;
 
   host_vector<Vector3f> vertices;
   host_vector<Color> colors;
@@ -162,11 +164,11 @@ void benchmarkSerializeMesh(benchmark::State& state) {
     state.PauseTiming();
     mapper->integrateDepth(data.depth_frame, data.T_L_C, data.camera);
     mapper->integrateColor(data.color_frame, data.T_L_C, data.camera);
-    mapper->updateMesh();
+    mapper->updateColorMesh();
     state.ResumeTiming();
 
-    serializer.serialize(mapper->mesh_layer(),
-                         mapper->mesh_layer().getAllBlockIndices(),
+    serializer.serialize(mapper->color_mesh_layer(),
+                         mapper->color_mesh_layer().getAllBlockIndices(),
                          cuda_stream);
   }
 }
@@ -214,6 +216,41 @@ BENCHMARK(benchmarkMonoImageGpuToCpuRoundtrip)
     ->Args({640, 480})
     ->Args({1024, 640})
     ->Args({1920, 1080})
+    ->Unit(benchmark::kMillisecond);
+
+void benchmarkFreespaceUpdate(benchmark::State& state) {
+  primitives::Scene scene = test_utils::getSphereInBox();
+  constexpr float kVoxelSizeM = 0.05;
+  constexpr int kMaxDistVox = 4;
+  constexpr float kMaxDistM = static_cast<float>(kMaxDistVox) * kVoxelSizeM;
+  TsdfLayer tsdf_layer(kVoxelSizeM, MemoryType::kUnified);
+  scene.generateLayerFromScene(kMaxDistM, &tsdf_layer);
+
+  auto cuda_stream = std::make_shared<CudaStreamOwning>();
+  FreespaceIntegrator freespace_integrator(cuda_stream);
+  freespace_integrator.check_neighborhood(state.range(0));
+  LOG(INFO) << "Check neighborhood: "
+            << freespace_integrator.check_neighborhood();
+  FreespaceLayer freespace_layer(kVoxelSizeM, MemoryType::kDevice);
+  const auto all_blocks = tsdf_layer.getAllBlockIndices();
+
+  nvblox::Time time(1);
+  // Let's first run a warmup round to avoid measuring the intial memory
+  // reset/transfer
+  freespace_integrator.updateFreespaceLayer(all_blocks, time, tsdf_layer, {},
+                                            &freespace_layer);
+
+  for (auto _ : state) {
+    time += Time(100000);
+
+    freespace_integrator.updateFreespaceLayer(all_blocks, time, tsdf_layer, {},
+                                              &freespace_layer);
+  }
+}
+
+BENCHMARK(benchmarkFreespaceUpdate)
+    ->Arg(false)
+    ->Arg(true)
     ->Unit(benchmark::kMillisecond);
 
 }  // namespace nvblox

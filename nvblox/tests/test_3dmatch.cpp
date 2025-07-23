@@ -87,6 +87,13 @@ TEST_F(Dataset3DMatchTest, LoadImage) {
   EXPECT_NEAR(image::maxGPU(image, CudaStreamOwning()), 7.835, kTolerance);
 }
 
+TEST_F(Dataset3DMatchTest, Run3dMatchFuser) {
+  auto fuser = datasets::threedmatch::createFuser(base_path_, 1);
+  EXPECT_NE(fuser, nullptr);
+  const int result = fuser->run();
+  EXPECT_EQ(result, 0);
+}
+
 enum class LoaderType { kSingleThreaded, kMultiThreaded };
 
 class LoaderParameterizedTest

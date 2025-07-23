@@ -19,7 +19,6 @@ limitations under the License.
 #include <algorithm>
 #include <cstring>
 #include <type_traits>
-#include "nvblox/utils/logging.h"
 
 #include <memory>
 

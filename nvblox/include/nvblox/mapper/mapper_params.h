@@ -19,7 +19,7 @@ limitations under the License.
 #include "nvblox/integrators/esdf_integrator_params.h"
 #include "nvblox/integrators/freespace_integrator.h"
 #include "nvblox/integrators/occupancy_decay_integrator.h"
-#include "nvblox/integrators/projective_color_integrator.h"
+#include "nvblox/integrators/projective_appearance_integrator.h"
 #include "nvblox/integrators/projective_integrator_params.h"
 #include "nvblox/integrators/projective_occupancy_integrator.h"
 #include "nvblox/integrators/projective_tsdf_integrator.h"

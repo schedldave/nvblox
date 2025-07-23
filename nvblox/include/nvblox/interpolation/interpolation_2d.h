@@ -17,7 +17,6 @@ limitations under the License.
 
 #include "nvblox/core/types.h"
 #include "nvblox/sensors/image.h"
-#include "nvblox/sensors/lidar.h"
 
 namespace nvblox {
 namespace interpolation {
@@ -31,64 +30,63 @@ struct PixelAlwaysValid;
 /// A checker that returns true if a float pixel is greater than 0.0f.
 struct FloatPixelGreaterThanZero;
 
-/// A checker that returns true if the alpha channel of a color pixel is greater
-/// than 0.
-struct ColorPixelAlphaGreaterThanZero;
-
 }  // namespace checkers
 
+/// Information about the interpolation neighborhood
 template <typename ElementType>
 struct Interpolation2DNeighbours {
+  /// Top-left corner
   ElementType p00;
+
+  /// Bottom-left corner
   ElementType p01;
+
+  /// Top-right corner
   ElementType p10;
+
+  /// Bottom-right corner
   ElementType p11;
+
+  /// Image coordinate of the top-left corner
   Index2D u_low_side_px;
 };
 
-// CPU interfaces
+/// Interpolate values from an image
+///
+/// @param frame Input image.
+/// @param u_px Location of pixel to interpolate.
+/// @param value_interpolated_ptr Resulting interpolated value.
+/// @param type Type of interpolation to perform.
 template <typename ElementType, typename PixelValidityChecker =
                                     checkers::PixelAlwaysValid<ElementType>>
-__host__ inline bool interpolate2DClosest(const Image<ElementType>& frame,
-                                          const Vector2f& u_px,
-                                          ElementType* value_interpolated_ptr);
-template <typename ElementType, typename PixelValidityChecker =
-                                    checkers::PixelAlwaysValid<ElementType>>
-__host__ inline bool interpolate2DLinear(const Image<ElementType>& frame,
-                                         const Vector2f& u_px,
-                                         ElementType* value_interpolated_ptr);
-template <typename ElementType, typename PixelValidityChecker =
-                                    checkers::PixelAlwaysValid<ElementType>>
-__host__ bool interpolate2D(
-    const Image<ElementType>& frame, const Vector2f& u_px,
-    ElementType* value_interpolated_ptr,
-    const InterpolationType type = InterpolationType::kLinear);
+__host__ __device__ bool interpolate2D(
+    const ImageView<const ElementType>& frame, const Vector2f& u_px,
+    ElementType* value_interpolated_ptr, const InterpolationType type);
 
-// CPU/GPU interfaces
-// NOTE(alexmillane): These function do the interpolation. They're called
-// indirectly on the CPU through the interfaces above, and called directly on
-// the GPU.
+/// Nearest neighbor
+///
+/// @param frame Input image.
+/// @param u_px Location of pixel to interpolate.
+/// @param value_interpolated_ptr Resulting interpolated value.
+/// @param u_px_closest_ptr Optional index of the nearest neighbor
 template <typename ElementType, typename PixelValidityChecker =
                                     checkers::PixelAlwaysValid<ElementType>>
 __host__ __device__ inline bool interpolate2DClosest(
-    const ElementType* frame, const Vector2f& u_px, const int rows,
-    const int cols, ElementType* value_interpolated_ptr,
-    Index2D* u_px_closest_ptr = nullptr);
+    const ImageView<const ElementType> frame, const Vector2f& u_px,
+    ElementType* value_interpolated_ptr, Index2D* u_px_closest_ptr = nullptr);
 
+/// Bilinear interpolation
+///
+/// @param frame Input image.
+/// @param u_px Location of pixel to interpolate.
+/// @param value_interpolated_ptr Resulting interpolated value.
+/// @param neighbours_ptr Optional neighborhood information.
 template <typename ElementType, typename PixelValidityChecker =
                                     checkers::PixelAlwaysValid<ElementType>>
 __host__ __device__ inline bool interpolate2DLinear(
-    const ElementType* frame, const Vector2f& u_px, const int rows,
-    const int cols, ElementType* value_interpolated_ptr,
+    const ImageView<const ElementType> frame, const Vector2f& u_px,
+    ElementType* value_interpolated_ptr,
     Interpolation2DNeighbours<ElementType>* neighbours_ptr = nullptr);
-
-// LiDAR GPU interpolation
-__device__ inline bool interpolateLidarImage(
-    const Lidar& lidar, const Vector3f& p_voxel_center_C, const float* image,
-    const Vector2f& u_px, const int rows, const int cols,
-    const float linear_interpolation_max_allowable_difference_m,
-    const float nearest_interpolation_max_allowable_squared_dist_to_ray_m,
-    float* image_value, Index2D* u_px_closest_ptr);
 
 }  // namespace interpolation
 }  // namespace nvblox

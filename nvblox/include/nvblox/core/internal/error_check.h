@@ -16,6 +16,7 @@ limitations under the License.
 #pragma once
 
 #include <cuda_runtime.h>
+#include <glog/logging.h>
 #include <npp.h>
 
 namespace nvblox {

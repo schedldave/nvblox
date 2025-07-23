@@ -43,8 +43,7 @@ template <typename ImageType>
 bool MultiThreadedImageLoader<ImageType>::getNextImage(ImageType* image_ptr) {
   CHECK_NOTNULL(image_ptr);
   auto images_optional_future = std::move(load_queue_.front());
-  ImageOptional<ImageType> image_optional =
-      std::move(images_optional_future.get());
+  ImageOptional<ImageType> image_optional = images_optional_future.get();
   if (image_optional.first) {
     *image_ptr = std::move(image_optional.second);
   }

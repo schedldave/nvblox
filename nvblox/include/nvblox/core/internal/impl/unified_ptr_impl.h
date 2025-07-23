@@ -16,7 +16,6 @@ limitations under the License.
 #pragma once
 
 #include <cuda_runtime.h>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/core/internal/error_check.h"
 

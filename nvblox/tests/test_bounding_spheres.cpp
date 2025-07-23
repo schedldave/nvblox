@@ -15,7 +15,6 @@ limitations under the License.
 */
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/core/types.h"
 #include "nvblox/geometry/bounding_spheres.h"

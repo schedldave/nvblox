@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/io/ply_writer.h"
 
@@ -111,8 +110,8 @@ void PlyWriter::writePoints() {
 
     if (colors_) {
       const Color& color = (*colors_)[i];
-      file_ << " " << std::to_string(color.r) << " " << std::to_string(color.g)
-            << " " << std::to_string(color.b);
+      file_ << " " << std::to_string(color.r()) << " "
+            << std::to_string(color.g()) << " " << std::to_string(color.b());
     }
     file_ << std::endl;
   }

@@ -24,7 +24,7 @@ limitations under the License.
 #include "nvblox/integrators/esdf_integrator.h"
 #include "nvblox/integrators/freespace_integrator.h"
 #include "nvblox/integrators/occupancy_decay_integrator.h"
-#include "nvblox/integrators/projective_color_integrator.h"
+#include "nvblox/integrators/projective_appearance_integrator.h"
 #include "nvblox/integrators/projective_occupancy_integrator.h"
 #include "nvblox/integrators/projective_tsdf_integrator.h"
 #include "nvblox/integrators/shape_clearer.h"
@@ -69,7 +69,7 @@ inline std::string toString(const EsdfMode& esdf_mode) {
   }
 }
 
-/// Whether to update the full layer on calls to updateMesh(),
+/// Whether to update the full layer on calls to updateColorMesh(),
 /// updateFreespace() and updateEsdf() respectively or only the blocks that
 /// require and update (tracked by BlocksToUpdateTracker).
 enum class UpdateFullLayer { kNo, kYes };
@@ -97,7 +97,8 @@ class MapperBase {
 /// The Mapper class is what we consider the default mapping behaviour in
 /// nvblox.
 /// Contains:
-/// - TsdfLayer, OccupancyLayer, ColorLayer, EsdfLayer, MeshLayer
+/// - TsdfLayer, OccupancyLayer, ColorLayer, EsdfLayer, ColorMeshLayer,
+/// FeatureMeshLayer
 /// - Integrators associated with these layer types.
 ///
 /// Exposes functions for:
@@ -110,21 +111,26 @@ class Mapper : public MapperBase {
   Mapper() = delete;
   /// Constructor
   /// @param voxel_size_m The voxel size in meters for the contained layers.
+  /// @param block_memory_pool_params Params governing how the blocks are stored
+  /// in memory
   /// @param projective_layer_type The layer type to which the projective
   ///        data is integrated (either tsdf or occupancy).
-  /// @param memory_type In which type of memory the layers should be stored.
   /// @param cuda_stream Optional cuda stream to perform all work on.
-  Mapper(float voxel_size_m, MemoryType memory_type = MemoryType::kDevice,
-         ProjectiveLayerType projective_layer_type = ProjectiveLayerType::kTsdf,
-         std::shared_ptr<CudaStream> cuda_stream =
-             std::make_shared<CudaStreamOwning>());
+  Mapper(
+      float voxel_size_m,
+      BlockMemoryPoolParams block_memory_pool_params = BlockMemoryPoolParams(),
+      ProjectiveLayerType projective_layer_type = ProjectiveLayerType::kTsdf,
+      std::shared_ptr<CudaStream> cuda_stream =
+          std::make_shared<CudaStreamOwning>());
   virtual ~Mapper() = default;
 
   /// Constructor which initializes from a saved map.
   /// @param map_filepath Path to the serialized map to be loaded.
-  /// @param memory_type In which type of memory the layers should be stored.
+  /// @param block_memory_pool_params Params governing how the blocks are stored
+  /// in memory.
+  /// @param cuda_stream Optional cuda stream to perform all work on.
   Mapper(const std::string& map_filepath,
-         MemoryType memory_type = MemoryType::kDevice,
+         BlockMemoryPoolParams = BlockMemoryPoolParams(),
          std::shared_ptr<CudaStream> cuda_stream =
              std::make_shared<CudaStreamOwning>());
 
@@ -168,8 +174,18 @@ class Mapper : public MapperBase {
   ///@param T_L_C Pose of the camera, specified as a transform from
   ///             Camera-frame to Layer-frame transform.
   ///@param camera Intrinsics model of the camera.
+  void integrateColor(const MaskedColorImageConstView& color_frame,
+                      const Transform& T_L_C, const Camera& camera);
   void integrateColor(const ColorImage& color_frame, const Transform& T_L_C,
                       const Camera& camera);
+
+  /// Integrates generic features into the reconstruction.
+  ///@param feature_frame Feature image to integrate.
+  ///@param T_L_C Pose of the camera, specified as a transform from
+  ///             Camera-frame to Layer-frame transform.
+  ///@param camera Intrinsics model of the camera.
+  void integrateFeatures(const MaskedFeatureImageConstView& feature_frame,
+                         const Transform& T_L_C, const Camera& camera);
 
   /// Integrates a 3D LiDAR scan into the reconstruction.
   ///@param depth_frame Depth image representing the LiDAR scan.
@@ -212,7 +228,14 @@ class Mapper : public MapperBase {
   /// @param update_full_layer Whether to update the full layer or only the
   /// blocks that require and update. Useful if loading a layer cake without a
   /// mesh layer, for example.
-  void updateMesh(UpdateFullLayer update_full_layer = UpdateFullLayer::kNo);
+  void updateColorMesh(
+      UpdateFullLayer update_full_layer = UpdateFullLayer::kNo);
+
+  /// Updates the feature mesh blocks.
+  /// @param update_full_layer Whether to update the full layer or only the
+  /// blocks that require and update.
+  void updateFeatureMesh(
+      UpdateFullLayer update_full_layer = UpdateFullLayer::kNo);
 
   /// Serialize selected layers.
   ///
@@ -226,30 +249,39 @@ class Mapper : public MapperBase {
   ///        Note that this limit is per layer, i.e. the actual bandwidth will
   ///        exceed the limit if more than one layer is serialized.
   /// @param maybe_exclusion_center Optional center for radiual block exclusion.
-  /// Typically set to robot translation.
+  ///        Typically set to robot translation.
+  /// @param blocks_to_serialize Optional user-provided blocks to serialize.
+  ///        If not given, only updated blocks will be serialized
   void serializeSelectedLayers(
       const LayerTypeBitMask layer_type_bitmask,
       const float bandwidth_limit_mbps,
       const BlockExclusionParams& maybe_exclusion_params =
-          BlockExclusionParams());
+          BlockExclusionParams(),
+      std::optional<std::vector<Index3D>> blocks_to_serialize = std::nullopt);
 
   /// Return the serialized mesh layer.
-  std::shared_ptr<const SerializedMeshLayer> serializedMeshLayer();
+  std::shared_ptr<SerializedColorMeshLayer> serializedColorMeshLayer();
+
+  /// Return the serialized feature mesh layer.
+  std::shared_ptr<SerializedFeatureMeshLayer> serializedFeatureMeshLayer();
 
   /// Return the serialized TSDF layer.
-  std::shared_ptr<const SerializedTsdfLayer> serializedTsdfLayer();
+  std::shared_ptr<SerializedTsdfLayer> serializedTsdfLayer();
 
   /// Return the serialized ESDF layer.
-  std::shared_ptr<const SerializedEsdfLayer> serializedEsdfLayer();
+  std::shared_ptr<SerializedEsdfLayer> serializedEsdfLayer();
 
   /// Return the serialized color layer.
-  std::shared_ptr<const SerializedColorLayer> serializedColorLayer();
+  std::shared_ptr<SerializedColorLayer> serializedColorLayer();
+
+  /// Return the serialized feature layer.
+  std::shared_ptr<SerializedFeatureLayer> serializedFeatureLayer();
 
   /// Return the serialized occupancy layer.
-  std::shared_ptr<const SerializedOccupancyLayer> serializedOccupancyLayer();
+  std::shared_ptr<SerializedOccupancyLayer> serializedOccupancyLayer();
 
   /// Return the serialized freespace layer.
-  std::shared_ptr<const SerializedFreespaceLayer> serializedFreespaceLayer();
+  std::shared_ptr<SerializedFreespaceLayer> serializedFreespaceLayer();
 
   /// Updates the ESDF blocks.
   /// Note that currently we limit the Mapper class to calculating *either*
@@ -320,11 +352,23 @@ class Mapper : public MapperBase {
   ///@return const ColorLayer& Color layer
   const ColorLayer& color_layer() const { return layers_.get<ColorLayer>(); }
   /// Getter
+  ///@return const FeatureLayer& Feature layer
+  const FeatureLayer& feature_layer() const {
+    return layers_.get<FeatureLayer>();
+  }
+  /// Getter
   ///@return const EsdfLayer& ESDF layer
   const EsdfLayer& esdf_layer() const { return layers_.get<EsdfLayer>(); }
   /// Getter
-  ///@return const MeshLayer& Mesh layer
-  const MeshLayer& mesh_layer() const { return layers_.get<MeshLayer>(); }
+  ///@return const ColorMeshLayer& Mesh layer
+  const ColorMeshLayer& color_mesh_layer() const {
+    return layers_.get<ColorMeshLayer>();
+  }
+  /// Getter
+  ///@return const FeatureMeshLayer& Feature mesh layer
+  const FeatureMeshLayer& feature_mesh_layer() const {
+    return layers_.get<FeatureMeshLayer>();
+  }
   /// Getter
   /// @return const LayerCakeStreamer& The layer cake streamer.
   const LayerCakeStreamer& layer_streamers() const { return layer_streamers_; }
@@ -334,26 +378,28 @@ class Mapper : public MapperBase {
   LayerCake& layers() { return layers_; }
   /// Getter
   ///@return TsdfLayer& TSDF layer
-  TsdfLayer& tsdf_layer() { return *layers_.getPtr<TsdfLayer>(); }
+  TsdfLayer& tsdf_layer();
   /// Getter
   ///@return OccupancyLayer& occupancy layer
-  OccupancyLayer& occupancy_layer() {
-    return *layers_.getPtr<OccupancyLayer>();
-  }
+  OccupancyLayer& occupancy_layer();
   /// Getter
   ///@return FreespaceLayer& freespace layer
-  FreespaceLayer& freespace_layer() {
-    return *layers_.getPtr<FreespaceLayer>();
-  }
+  FreespaceLayer& freespace_layer();
   /// Getter
   ///@return ColorLayer& Color layer
-  ColorLayer& color_layer() { return *layers_.getPtr<ColorLayer>(); }
+  ColorLayer& color_layer();
+  /// Getter
+  ///@return FeatureLayer& Feature layer
+  FeatureLayer& feature_layer();
   /// Getter
   ///@return EsdfLayer& ESDF layer
-  EsdfLayer& esdf_layer() { return *layers_.getPtr<EsdfLayer>(); }
+  EsdfLayer& esdf_layer();
   /// Getter
-  ///@return MeshLayer& Mesh layer
-  MeshLayer& mesh_layer() { return *layers_.getPtr<MeshLayer>(); }
+  ///@return ColorMeshLayer& Color mesh layer
+  ColorMeshLayer& color_mesh_layer();
+  /// Getter
+  ///@return FeatureMeshLayer& Feature mesh layer
+  FeatureMeshLayer& feature_mesh_layer();
   /// Getter
   /// @return const LayerCakeStreamer& The layer cake streamer.
   LayerCakeStreamer& layer_streamers() { return layer_streamers_; }
@@ -366,8 +412,7 @@ class Mapper : public MapperBase {
   }
   /// Getter
   ///@return const ProjectiveOccupancyIntegrator& occupancy integrator used
-  /// for
-  ///        depth/rgbd frame integration.
+  /// for depth/rgbd frame integration.
   const ProjectiveOccupancyIntegrator& occupancy_integrator() const {
     return occupancy_integrator_;
   }
@@ -413,8 +458,20 @@ class Mapper : public MapperBase {
     return color_integrator_;
   }
   /// Getter
+  ///@return const ProjectiveFeatureIntegrator& Feature integrator.
+  const ProjectiveFeatureIntegrator& feature_integrator() const {
+    return feature_integrator_;
+  }
+  /// Getter
   ///@return const MeshIntegrator& Mesh integrator
-  const MeshIntegrator& mesh_integrator() const { return mesh_integrator_; }
+  const ColorMeshIntegrator& color_mesh_integrator() const {
+    return color_mesh_integrator_;
+  }
+  /// Getter
+  ///@return const MeshIntegrator& Mesh integrator
+  const FeatureMeshIntegrator& feature_mesh_integrator() const {
+    return feature_mesh_integrator_;
+  }
   /// Getter
   ///@return const EsdfIntegrator& ESDF integrator
   const EsdfIntegrator& esdf_integrator() const { return esdf_integrator_; }
@@ -466,8 +523,20 @@ class Mapper : public MapperBase {
   ///@return ProjectiveColorIntegrator& Color integrator.
   ProjectiveColorIntegrator& color_integrator() { return color_integrator_; }
   /// Getter
+  ///@return ProjectiveFeatureIntegrator& Feature integrator.
+  ProjectiveFeatureIntegrator& feature_integrator() {
+    return feature_integrator_;
+  }
+  /// Getter
   ///@return MeshIntegrator& Mesh integrator
-  MeshIntegrator& mesh_integrator() { return mesh_integrator_; }
+  ColorMeshIntegrator& color_mesh_integrator() {
+    return color_mesh_integrator_;
+  }
+  /// Getter
+  ///@return MeshIntegrator& Mesh integrator
+  FeatureMeshIntegrator& feature_mesh_integrator() {
+    return feature_mesh_integrator_;
+  }
   /// Getter
   ///@return EsdfIntegrator& ESDF integrator
   EsdfIntegrator& esdf_integrator() { return esdf_integrator_; }
@@ -524,13 +593,17 @@ class Mapper : public MapperBase {
   bool saveLayerCake(const char* filename) const;
   /// Loading the map will load a the TSDF and ESDF layers from a file.
   /// Will clear anything in the map already.
-  bool loadMap(const std::string& filename);
-  bool loadMap(const char* filename);
+  bool loadMap(const std::string& filename,
+               const BlockMemoryPoolParams block_memory_pool_params =
+                   BlockMemoryPoolParams());
+  bool loadMap(const char* filename,
+               const BlockMemoryPoolParams block_memory_pool_params =
+                   BlockMemoryPoolParams());
 
   /// Write mesh as a PLY
   /// @param filename Path to output PLY file.
   /// @return bool Flag indicating if write was successful.
-  bool saveMeshAsPly(const std::string& filename) const;
+  bool saveColorMeshAsPly(const std::string& filename) const;
 
   /// Writes the Esdf as a PLY
   /// @param filename Path to the output PLY file.
@@ -583,6 +656,12 @@ class Mapper : public MapperBase {
                        std::optional<ViewBasedInclusionData> view_to_update,
                        UpdateFullLayer update_full_layer);
 
+  // Template function to update the mesh layer (color or feature)
+  template <typename AppearanceVoxelType>
+  void updateMeshTemplate(MeshIntegrator<AppearanceVoxelType>& mesh_integrator,
+                          UpdateFullLayer update_full_layer,
+                          BlocksToUpdateType blocks_to_update_type);
+
   /// Serialize layers needed for color visualization
   void serializeColorTsdfAndFreespaceLayers(
       const std::vector<Index3D>& blocks_to_serialize,
@@ -613,8 +692,6 @@ class Mapper : public MapperBase {
 
   /// The size of the voxels to be used in the TSDF, ESDF, Color layers.
   float voxel_size_m_;
-  /// The storage location for the TSDF, ESDF, Color, and Mesh Layers.
-  MemoryType memory_type_;
   /// The layer type to which the projective data is integrated (either tsdf
   /// or occupancy).
   ProjectiveLayerType projective_layer_type_ = kDefaultProjectiveLayerType;
@@ -635,7 +712,9 @@ class Mapper : public MapperBase {
   TsdfDecayIntegrator tsdf_decay_integrator_;
   TsdfShapeClearer tsdf_shape_clearer_;
   ProjectiveColorIntegrator color_integrator_;
-  MeshIntegrator mesh_integrator_;
+  ProjectiveFeatureIntegrator feature_integrator_;
+  ColorMeshIntegrator color_mesh_integrator_;
+  FeatureMeshIntegrator feature_mesh_integrator_;
   EsdfIntegrator esdf_integrator_;
 
   // Layer Streamers
@@ -653,7 +732,8 @@ class Mapper : public MapperBase {
       std::make_shared<DepthImage>(MemoryType::kDevice);
 
   /// Helper to keep track of which blocks need to be updated on the next
-  /// calls to updateMesh(), updateFreespace() upd updateEsdf() respectively.
+  /// calls to updateColorMesh(), updateFeatureMesh(), updateFreespace() upd
+  /// updateEsdf() respectively.
   BlocksToUpdateTracker blocks_to_update_tracker_;
 
   /// Keeping track of the mesh blocks that got deleted in the mesh layer.

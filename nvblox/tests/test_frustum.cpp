@@ -100,8 +100,8 @@ TEST_F(FrustumTest, FarPlaneImageTest) {
   // Now get the actual thing to test.
   std::vector<Index3D> blocks_in_cuda_view =
       view_calculator_.getBlocksInImageViewRaycast(
-          depth_frame, T_S_C, *camera_, block_size_, 0.0f,
-          max_distance + kFloatEpsilon);
+          MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_S_C,
+          *camera_, block_size_, 0.0f, max_distance + kFloatEpsilon);
 
   // Sort all of the entries.
   std::sort(blocks_in_cuda_view.begin(), blocks_in_cuda_view.end(),
@@ -167,8 +167,8 @@ TEST_F(FrustumTest, PlaneWithGround) {
   timing::Timer blocks_in_cuda_view_timer("blocks_in_cuda_view");
   std::vector<Index3D> blocks_in_cuda_view =
       view_calculator_.getBlocksInImageViewRaycast(
-          depth_frame, T_S_C, *camera_, block_size_, 0.0f,
-          max_distance + kFloatEpsilon);
+          MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_S_C,
+          *camera_, block_size_, 0.0f, max_distance + kFloatEpsilon);
   EXPECT_LT(blocks_in_cuda_view.size(), blocks_in_view.size());
   blocks_in_cuda_view_timer.Stop();
 
@@ -286,7 +286,8 @@ TEST_F(FrustumTest, ThreeDMatch) {
     timing::Timer blocks_in_cuda_view_timer("blocks_in_cuda_view");
     std::vector<Index3D> blocks_in_cuda_view =
         view_calculator_.getBlocksInImageViewRaycast(
-            depth_frame, T_L_C, camera, block_size_, 0.0f, max_distance);
+            MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere),
+            T_L_C, camera, block_size_, 0.0f, max_distance);
     blocks_in_cuda_view_timer.Stop();
 
     // Figure out what the GT should be.
@@ -355,8 +356,8 @@ TEST_P(FrustumRayTracingSubsamplingTest, RayTracePixels) {
 
   const std::vector<Index3D> blocks_in_view =
       view_calculator.getBlocksInImageViewRaycast(
-          depth_frame, T_L_C, camera, kBlockSize, 0.0,
-          kDistanceToBlockCenters + 1.0f);
+          MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+          camera, kBlockSize, 0.0, kDistanceToBlockCenters + 1.0f);
 
   std::for_each(blocks_in_view.begin(), blocks_in_view.end(),
                 [](const auto& block_idx) {
@@ -396,8 +397,8 @@ TEST_F(FrustumTest, ViewpointCache) {
 
   std::vector<Index3D> blocks_in_view_1 =
       view_calculator_1.getBlocksInImageViewRaycast(
-          depth_frame, T_L_C, camera, block_size_,
-          max_integration_distance_behind_surface_m,
+          MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+          camera, block_size_, max_integration_distance_behind_surface_m,
           max_integration_distance_m);
 
   DepthImage zero_depth_image(MemoryType::kDevice);
@@ -406,8 +407,8 @@ TEST_F(FrustumTest, ViewpointCache) {
 
   std::vector<Index3D> blocks_in_view_2 =
       view_calculator_2.getBlocksInImageViewRaycast(
-          zero_depth_image, T_L_C, camera, block_size_,
-          max_integration_distance_behind_surface_m,
+          MaskedDepthImageConstView(zero_depth_image, kMaskActiveEverywhere),
+          T_L_C, camera, block_size_, max_integration_distance_behind_surface_m,
           max_integration_distance_m);
 
   EXPECT_GT(blocks_in_view_1.size(), 0);
@@ -423,12 +424,14 @@ TEST_F(FrustumTest, ViewpointCache) {
   // Repeat the test and see that we now get the same results for the two
   // calculations
   blocks_in_view_1 = view_calculator_1.getBlocksInImageViewRaycast(
-      depth_frame, T_L_C, camera, block_size_,
-      max_integration_distance_behind_surface_m, max_integration_distance_m);
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+      camera, block_size_, max_integration_distance_behind_surface_m,
+      max_integration_distance_m);
 
   blocks_in_view_2 = view_calculator_2.getBlocksInImageViewRaycast(
-      zero_depth_image, T_L_C, camera, block_size_,
-      max_integration_distance_behind_surface_m, max_integration_distance_m);
+      MaskedDepthImageConstView(zero_depth_image, kMaskActiveEverywhere), T_L_C,
+      camera, block_size_, max_integration_distance_behind_surface_m,
+      max_integration_distance_m);
 
   EXPECT_GT(blocks_in_view_1.size(), 0);
   EXPECT_EQ(blocks_in_view_1.size(), blocks_in_view_2.size());

@@ -126,24 +126,22 @@ __global__ void decayKernel(BlockType** block_ptrs,
 
 template <typename BlockType, typename DecayFunctorType>
 __global__ void decayTsdfExcludeImageKernel(
-    BlockType** block_ptrs,                // NOLINT
-    const DecayFunctorType voxel_decayer,  // NOLINT
-    const Index3D* block_indices,          // NOLINT
-    const Camera camera,                   // NOLINT
-    const float* depth_image,              // NOLINT
-    const int rows,                        // NOLINT
-    const int cols,                        // NOLINT
-    const Transform T_C_L,                 // NOLINT
-    const float block_size_m,              // NOLINT
-    const float max_distance_m,            // NOLINT
-    const float truncation_distance_m,     // NOLINT
+    BlockType** block_ptrs,                 // NOLINT
+    const DecayFunctorType voxel_decayer,   // NOLINT
+    const Index3D* block_indices,           // NOLINT
+    const Camera camera,                    // NOLINT
+    const DepthImageConstView depth_image,  // NOLINT
+    const Transform T_C_L,                  // NOLINT
+    const float block_size_m,               // NOLINT
+    const float max_distance_m,             // NOLINT
+    const float truncation_distance_m,      // NOLINT
     bool* is_block_fully_decayed) {
   // We do the decay step, only if the voxel is not in view.
   Index3D block_idx, voxel_idx;
   voxelAndBlockIndexFromCudaThreadIndex(block_indices, &block_idx, &voxel_idx);
   const bool do_decay = (!doesVoxelHaveDepthMeasurement(
-      block_idx, voxel_idx, camera, depth_image, rows, cols, T_C_L,
-      block_size_m, max_distance_m, truncation_distance_m));
+      block_idx, voxel_idx, camera, depth_image, T_C_L, block_size_m,
+      max_distance_m, truncation_distance_m));
   decay(block_ptrs, voxel_decayer, do_decay, is_block_fully_decayed);
 }
 
@@ -215,18 +213,16 @@ std::vector<Index3D> VoxelDecayer<LayerType>::decay(
         << "At the moment we only support view exclusion *with* a DepthImage.";
     decayTsdfExcludeImageKernel<<<num_thread_blocks, kThreadsPerBlock, 0,
                                   cuda_stream>>>(
-        allocated_block_ptrs_device_.data(),                          // NOLINT
-        voxel_decay_functor,                                          // NOLINT
-        allocated_block_indices_device_.data(),                       // NOLINT
-        view_exclusion_options->camera,                               // NOLINT
-        view_exclusion_options->depth_image.value()->dataConstPtr(),  // NOLINT
-        view_exclusion_options->depth_image.value()->rows(),          // NOLINT
-        view_exclusion_options->depth_image.value()->cols(),          // NOLINT
-        view_exclusion_options->T_L_C.inverse(),                      // NOLINT
-        layer_ptr->block_size(),                                      // NOLINT
-        kernel_max_view_distance_m,                                   // NOLINT
-        kernel_truncation_distance_m,                                 // NOLINT
-        block_fully_decayed_device_.data()                            // NOLINT
+        allocated_block_ptrs_device_.data(),          // NOLINT
+        voxel_decay_functor,                          // NOLINT
+        allocated_block_indices_device_.data(),       // NOLINT
+        view_exclusion_options->camera,               // NOLINT
+        view_exclusion_options->depth_image.value(),  // NOLINT
+        view_exclusion_options->T_L_C.inverse(),      // NOLINT
+        layer_ptr->block_size(),                      // NOLINT
+        kernel_max_view_distance_m,                   // NOLINT
+        kernel_truncation_distance_m,                 // NOLINT
+        block_fully_decayed_device_.data()            // NOLINT
     );
   } else {
     decayKernel<<<num_thread_blocks, kThreadsPerBlock, 0, cuda_stream>>>(

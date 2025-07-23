@@ -31,10 +31,10 @@ limitations under the License.
 namespace nvblox {
 
 void weldVerticesThrustAsync(const std::vector<Index3D>& block_indices,
-                             BlockLayer<MeshBlock>* mesh_layer,
+                             ColorMeshLayer* mesh_layer,
                              const CudaStream& cuda_stream) {
   for (const Index3D& index : block_indices) {
-    MeshBlock::Ptr mesh_block = mesh_layer->getBlockAtIndex(index);
+    ColorMeshBlock::Ptr mesh_block = mesh_layer->getBlockAtIndex(index);
 
     if (!mesh_block || mesh_block->size() <= 3) {
       continue;
@@ -43,8 +43,9 @@ void weldVerticesThrustAsync(const std::vector<Index3D>& block_indices,
     // Store a copy of the input vertices.
     device_vector<Vector3f> input_vertices;
     input_vertices.copyFromAsync(mesh_block->vertices, CudaStreamOwning());
-    device_vector<Vector3f> input_normals;
-    input_normals.copyFromAsync(mesh_block->normals, CudaStreamOwning());
+    device_vector<Vector3f> input_vertex_normals;
+    input_vertex_normals.copyFromAsync(mesh_block->vertex_normals,
+                                       CudaStreamOwning());
 
     // sort vertices to bring duplicates together
     thrust::sort(thrust::device.on(cuda_stream), mesh_block->vertices.begin(),
@@ -59,7 +60,7 @@ void weldVerticesThrustAsync(const std::vector<Index3D>& block_indices,
     // Figure out the new size.
     size_t new_size = iterator - mesh_block->vertices.begin();
     mesh_block->vertices.resizeAsync(new_size, CudaStreamOwning());
-    mesh_block->normals.resizeAsync(new_size, CudaStreamOwning());
+    mesh_block->vertex_normals.resizeAsync(new_size, CudaStreamOwning());
 
     // Find the indices of the original triangles.
     thrust::lower_bound(thrust::device.on(cuda_stream),
@@ -68,10 +69,11 @@ void weldVerticesThrustAsync(const std::vector<Index3D>& block_indices,
                         input_vertices.end(), mesh_block->triangles.begin(),
                         VectorCompare<Vector3f>());
 
-    // Reshuffle the normals to match.
-    thrust::scatter(thrust::device.on(cuda_stream), input_normals.begin(),
-                    input_normals.end(), mesh_block->triangles.begin(),
-                    mesh_block->normals.begin());
+    // Reshuffle the vertex_normals to match.
+    thrust::scatter(thrust::device.on(cuda_stream),
+                    input_vertex_normals.begin(), input_vertex_normals.end(),
+                    mesh_block->triangles.begin(),
+                    mesh_block->vertex_normals.begin());
   }
 }
 

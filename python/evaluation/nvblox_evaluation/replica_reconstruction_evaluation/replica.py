@@ -16,9 +16,10 @@
 
 import os
 from pathlib import Path
+from typing import Optional
 
 
-def get_output_dir(dataset_name: str, output_root_path: Path = None) -> Path:
+def get_output_dir(dataset_name: str, output_root_path: Optional[Path] = None) -> Path:
     """
     Get output directory.
 
@@ -41,12 +42,10 @@ def get_output_dir(dataset_name: str, output_root_path: Path = None) -> Path:
     if output_root_path is None:
         script_dir = Path(__file__).resolve().parent
         output_dir = script_dir / 'output' / dataset_name
-        print(
-            f"No output root directory passed, saving below script at:\n\t{output_dir}"
-        )
+        print(f'No output root directory passed, saving below script at:\n\t{output_dir}')
     else:
         output_dir = Path(output_root_path) / dataset_name
-        print(f"Output to be saved in: {output_dir}")
+        print(f'Output to be saved in: {output_dir}')
     if not os.path.exists(output_dir):
         print(f"Output directory doesn't exist. Creating it at {output_dir}")
         os.makedirs(output_dir)
@@ -63,12 +62,10 @@ def get_default_fuse_replica_binary_path() -> Path:
 
     """
     script_dir = Path(__file__).resolve().parent
-    return script_dir.parents[
-        3] / 'build' / 'nvblox' / 'executables' / 'fuse_replica'
+    return script_dir.parents[3] / 'build' / 'nvblox' / 'executables' / 'fuse_replica'
 
 
-def get_dataset_name_from_groundtruth_mesh_path(
-        groundtruth_mesh_path: Path) -> str:
+def get_dataset_name_from_groundtruth_mesh_path(groundtruth_mesh_path: Path) -> str:
     """
     Get the name of the replica dataset from a path to the ground-truth mesh.
 
@@ -101,8 +98,7 @@ def get_dataset_name_from_dataset_root_path(dataset_root_path: Path) -> str:
     return dataset_root_path.name
 
 
-def get_dataset_root_from_groundtruth_mesh_path(
-        groundtruth_mesh_path: Path) -> Path:
+def get_dataset_root_from_groundtruth_mesh_path(groundtruth_mesh_path: Path) -> Path:
     """
     Get the path to the dataset root folder.
 

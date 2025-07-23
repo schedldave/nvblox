@@ -1,0 +1,33 @@
+[project]
+name = "nvblox_torch"
+description = "Pytorch interface for nvblox"
+
+# Version is dynamically determined in setup.py
+dynamic = ["version"]
+dependencies = [
+    "transforms3d>=0.4.2",
+    "imageio>=2.35.0",
+    "numpy",
+    "open3d",
+    "torchvision==0.19",
+    "timm",
+    "opencv-python",
+    "einops",
+    "torch==2.4",
+    "nvtx",
+]
+
+[build-system]
+requires = [
+    "setuptools>=61.0"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nvblox_torch*"]
+
+[tool.pydocstyle]
+convention = "google"
+add-ignore = ["D100"]
+# NOTE(dtingdahl) files to check are specified in .pre-commit-config.yaml

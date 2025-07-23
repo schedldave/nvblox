@@ -17,7 +17,6 @@ limitations under the License.
 #include <cstdio>
 #include <fstream>
 #include <vector>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/map_saving/internal/sqlite_database.h"
 

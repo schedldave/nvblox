@@ -58,8 +58,11 @@ class MaskedImageViewTestFixture : public ::testing::Test {
 };
 
 TEST_F(MaskedImageViewTestFixture, NoMaskImageDefaultsToActive) {
-  EXPECT_EQ(countNumMasked(MaskedDepthImageView(depth_)), kRows * kCols);
-  EXPECT_EQ(countNumMasked(MaskedDepthImageConstView(depth_)), kRows * kCols);
+  EXPECT_EQ(countNumMasked(MaskedDepthImageView(depth_, kMaskActiveEverywhere)),
+            kRows * kCols);
+  EXPECT_EQ(
+      countNumMasked(MaskedDepthImageConstView(depth_, kMaskActiveEverywhere)),
+      kRows * kCols);
 }
 
 TEST_F(MaskedImageViewTestFixture, EmptyMaskImage) {
@@ -78,6 +81,15 @@ TEST_F(MaskedImageViewTestFixture, SingleMaskPixel) {
   std::memset(mask_.dataPtr() + (kCols * 3 + 5), 255, 1);
   EXPECT_EQ(countNumMasked(MaskedDepthImageView(depth_, mask_)), 1);
   EXPECT_EQ(countNumMasked(MaskedDepthImageConstView(depth_, mask_)), 1);
+}
+
+TEST_F(MaskedImageViewTestFixture, CopyConstruct) {
+  MaskedDepthImageConstView view(depth_, mask_);
+  MaskedDepthImageConstView copy = view;
+  EXPECT_TRUE(copy.hasMask());
+  EXPECT_TRUE(view.hasMask());
+  EXPECT_EQ(view.rows(), copy.rows());
+  EXPECT_EQ(view.cols(), copy.cols());
 }
 
 }  // namespace nvblox

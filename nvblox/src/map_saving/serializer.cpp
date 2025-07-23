@@ -15,7 +15,6 @@ limitations under the License.
 */
 #include <stdio.h>
 #include <vector>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/map_saving/internal/serializer.h"
 

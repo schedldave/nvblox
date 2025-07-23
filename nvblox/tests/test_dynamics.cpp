@@ -175,8 +175,9 @@ TEST_F(DynamicsTester, HumanDataset) {
   integrator.max_integration_distance_m(max_integration_distance_);
   TsdfLayer tsdf_layer_L(voxel_size_m_, MemoryType::kUnified);
   std::vector<Index3D> updated_blocks;
-  integrator.integrateFrame(depth_frame_L, Transform::Identity(), camera,
-                            &tsdf_layer_L, &updated_blocks);
+  integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame_L, kMaskActiveEverywhere),
+      Transform::Identity(), camera, &tsdf_layer_L, &updated_blocks);
 
   // Prepare the freespace layer and integrator
   FreespaceLayer freespace_layer_L(voxel_size_m_, MemoryType::kUnified);

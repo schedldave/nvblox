@@ -26,7 +26,6 @@ limitations under the License.
 #include "nvblox/core/hash.h"
 #include "nvblox/core/internal/error_check.h"
 #include "nvblox/core/types.h"
-#include "nvblox/utils/logging.h"
 
 namespace nvblox {
 

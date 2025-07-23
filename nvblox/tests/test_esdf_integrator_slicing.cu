@@ -562,14 +562,14 @@ TEST_P(ParameterizedEsdfIntegratorSlicingTest, TestScene) {
     EXPECT_TRUE(res);
 
     // Mesh
-    MeshLayer mesh_layer(kBlockSizeM, MemoryType::kDevice);
-    MeshIntegrator mesh_integrator(cuda_stream_ptr_);
+    ColorMeshLayer mesh_layer(kBlockSizeM, MemoryType::kDevice);
+    ColorMeshIntegrator mesh_integrator(cuda_stream_ptr_);
     res = mesh_integrator.integrateMeshFromDistanceField(tsdf_layer_,
                                                          &mesh_layer);
     EXPECT_TRUE(res);
 
-    res = io::outputMeshLayerToPly(mesh_layer,
-                                   "esdf_integrator_slicing_test_scene.ply");
+    res = io::outputColorMeshLayerToPly(
+        mesh_layer, "esdf_integrator_slicing_test_scene.ply");
     EXPECT_TRUE(res);
   }
 }

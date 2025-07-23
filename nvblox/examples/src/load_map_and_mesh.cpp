@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 #include "gflags/gflags.h"
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/nvblox.h"
 
@@ -46,11 +45,11 @@ int main(int argc, char* argv[]) {
 
   // Mesh
   LOG(INFO) << "Meshing";
-  MeshIntegrator mesh_integrator;
-  MeshLayer mesh_layer(cake.block_size(), MemoryType::kDevice);
+  ColorMeshIntegrator mesh_integrator;
+  ColorMeshLayer mesh_layer(cake.block_size(), MemoryType::kDevice);
   mesh_integrator.integrateMeshFromDistanceField(cake.get<TsdfLayer>(),
                                                  &mesh_layer);
-  mesh_integrator.colorMesh(cake.get<ColorLayer>(), &mesh_layer);
+  mesh_integrator.updateAppearance(cake.get<ColorLayer>(), &mesh_layer);
   LOG(INFO) << "Done";
 
   std::string output_path;
@@ -60,7 +59,7 @@ int main(int argc, char* argv[]) {
     output_path = "./mesh.ply";
   }
   LOG(INFO) << "Writing mesh to: " << output_path;
-  CHECK(io::outputMeshLayerToPly(mesh_layer, output_path));
+  CHECK(io::outputColorMeshLayerToPly(mesh_layer, output_path));
   LOG(INFO) << "Done";
 
   // Esdf

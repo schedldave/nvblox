@@ -1,4 +1,5 @@
-FROM nvcr.io/nvidia/cuda:12.6.0-devel-ubuntu20.04
+ARG BASE_IMAGE=nvcr.io/nvidia/cuda:12.8.0-devel-ubuntu24.04
+FROM ${BASE_IMAGE}
 
 # TZData goes first.
 RUN apt-get update
@@ -7,41 +8,63 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update && apt-get install -y tzdata
 
-# Install basics.
-RUN apt-get update && apt-get install -y ssh git jq gnupg apt-utils software-properties-common build-essential sudo python3-pip cmake
+# Install apt dependencies.
+RUN apt update && apt-get --no-install-recommends install -y \
+    # Source development \
+    git jq build-essential \
+    # System packages \
+    sudo ssh gnupg wget curl unzip \
+    # Package management tools \
+    apt-utils software-properties-common \
+    # Python bootstrap packages \
+    python3-pip python3-venv \
+    # Open3D system dependencies \
+    # NOTE(alexmillane): Taken from: http://www.open3d.org/docs/release/docker.html \
+    libegl1 libgl1 libgomp1 \
+    # Tools used in tests \
+    cuda-nsight-systems-12-6 parallel
 
-# Install Open3D system dependencies
-#NOTE(alexmillane): The lines below are taken from: http://www.open3d.org/docs/release/docker.html
-#NOTE(alexmillane): In the latest open3d version 0.17.0 the visualizer view control is broken (known issue)
-# so if you need this you may have to downgrade 0.16.0. For the time being I'm using 0.17.0.
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    libegl1 \
-    libgl1 \
-    libgomp1
+# Install pytorch.
+# Note that all python deps are installed inside a venv. This is required by ubuntu >= 24.
+RUN python3 -m venv /opt/venv
+RUN . /opt/venv/bin/activate && \
+    python3 -m pip install --ignore-installed --upgrade pip && \
+    python3 -m pip install \
+    # Pytorch. Note that this version is only compatible with pre-cxx11 ABI binaries. \
+    torch==2.4
 
-# Install devtools
-RUN apt-get update && apt-get install -y cuda-nsight-systems-12-6 bc clang-format parallel
+# Install python deps.
+RUN . /opt/venv/bin/activate && \
+    python3 -m pip install --upgrade \
+    # Deployment tools \
+    wheel requests setuptools \
+    # Testing \
+    pytest pytest-rerunfailures \
+    # Profiling \
+    nvtx
 
-# Install globally required python modules.
-# Note that per-package deps are specified in individual requirements.txt files and are instaleld automatically during the build step.
-RUN python3 -m pip install --no-cache-dir --upgrade pip && pip install -U pytest==4.6 yapf==0.40 pylint==3.0 pydocstyle==6.3 wheel==0.43
+# Install cmake.
+COPY docker/install_cmake.sh /
+RUN /install_cmake.sh
 
-# Upgrade cmake to 3.22.1
-# We need this to build with c++17 under CMAKE.
-# NOTE: The commands below are taken from isaac_ros_common/docker/Dockerfile.aarch64
-RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
-    && echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ focal main' | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null \
-    && apt-get update \
-    && rm /usr/share/keyrings/kitware-archive-keyring.gpg \
-    && apt-get install -y kitware-archive-keyring \
-    && apt-get remove -y cmake && apt-get purge -y cmake && apt-get remove -y cmake-data && apt-get purge -y cmake \
-    && apt-get install -y cmake=3.22.1-0kitware1ubuntu20.04.1 cmake-data=3.22.1-0kitware1ubuntu20.04.1 \
-    && cmake --version \
-&& rm -rf /var/lib/apt/lists/* \
-&& apt-get clean
+# Install ccache. We need a recent version for improved nvcc support.
+COPY docker/install_ccache.sh /
+RUN /install_ccache.sh
 
+# Make sure we're using text-based interactive terminal.
 ENV DEBIAN_FRONTEND teletype
 
-# Setup search paths by adding them to the global bashrc.
-RUN echo 'PATH=$PATH:/usr/local/cuda/bin' | tee --append /etc/bash.bashrc && \
-    echo 'export CMAKE_PREFIX_PATH=/usr/local/lib/python3.8/dist-packages/torch/share/cmake/Torch' | tee --append /etc/bash.bashrc
+# Setup env variables by adding them to the global bashrc.
+RUN . /opt/venv/bin/activate && python3 -c "import site; print(site.getsitepackages()[0])" > /site-packages-dir
+RUN touch /etc/nvblox_env.sh
+RUN echo 'PATH=$PATH:/usr/local/cuda/bin' | tee --append /etc/nvblox_env.sh && \
+    # Make sure we have the torch cmake path
+    echo "export CMAKE_PREFIX_PATH=$(cat /site-packages-dir)/torch" | tee --append /etc/nvblox_env.sh && \
+    # Explicit CUDA_PATH is needed here due to the non-standard location of the nvcc compiler (see section on ccache)
+    echo 'export CUDA_PATH=/usr/local/cuda' | tee --append /etc/nvblox_env.sh && \
+    # Always activate the venv upon login \
+    echo 'source /opt/venv/bin/activate' | tee --append /etc/nvblox_env.sh
+RUN echo 'source /etc/nvblox_env.sh' | tee --append /etc/bash.bashrc
+
+# Ensure that a local user can access the python venv
+RUN chmod -R a+rw /opt/venv

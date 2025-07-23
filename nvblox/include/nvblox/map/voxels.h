@@ -17,7 +17,9 @@ limitations under the License.
 
 #include <Eigen/Core>
 
+#include "nvblox/core/array.h"
 #include "nvblox/core/color.h"
+#include "nvblox/core/feature_array.h"
 #include "nvblox/core/time.h"
 
 namespace nvblox {
@@ -73,11 +75,20 @@ struct EsdfVoxel {
 
 /// Voxel that stores the color near the surface.
 struct ColorVoxel {
+  using ArrayType = Color;  // Note that Color inherits from Array
   __host__ __device__ ColorVoxel() : color(Color::Gray()), weight(0.0f) {}
-  /// The color!
   Color color;
   /// How many observations/how confident we are in this observation.
   float weight;
+};
+
+struct FeatureVoxel {
+  using ArrayType = FeatureArray;
+  FeatureArray feature;
+  /// How many observations/how confident we are in this observation.
+  /// We use the same type as for the feature vector in order to facilitate
+  /// packing.
+  FeatureArray::value_type weight;
 };
 
 struct OccupancyVoxel {

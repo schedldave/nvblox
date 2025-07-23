@@ -27,14 +27,13 @@ import helpers.run_threedmatch as threedmatch
 from helpers.plot_timing_comparison import plot_timings
 
 
-def generate_timings(dataset_path: str, other_branch_or_hash: str,
-                     num_runs: int) -> None:
+def generate_timings(dataset_path: str, other_branch_or_hash: str, num_runs: int) -> None:
 
     # Get this repo
     # Note(alexmillane): We assume that this script is being executed within the repo under test.
     this_directory = os.getcwd()
     repo = git.Repo(this_directory, search_parent_directories=True)
-    git_root_dir = repo.git.rev_parse("--show-toplevel")
+    git_root_dir = repo.git.rev_parse('--show-toplevel')
     assert not repo.bare
 
     # Branches to time
@@ -42,7 +41,7 @@ def generate_timings(dataset_path: str, other_branch_or_hash: str,
     branch_names = [current_branch_name, other_branch_or_hash]
 
     # Where to place timings
-    datetime_str = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+    datetime_str = datetime.now().strftime('%m_%d_%Y_%H_%M_%S')
     output_root = os.path.join(this_directory, 'output', datetime_str)
 
     # Timing each branch
@@ -54,15 +53,15 @@ def generate_timings(dataset_path: str, other_branch_or_hash: str,
         try:
             repo.git.checkout(branch_name)
         except git.GitCommandError:
-            print("Could not checkout branch: " + branch_name +
-                  ". Maybe you have uncommited changes?.")
+            print('Could not checkout branch: ' + branch_name +
+                  '. Maybe you have uncommited changes?.')
             return
 
         # Build
         if not os.path.exists(build_dir):
-            print("Please create a build space at: " + build_dir)
+            print('Please create a build space at: ' + build_dir)
             return
-        build_command = f"cd {build_dir} && cmake .. && make -j16"
+        build_command = f'cd {build_dir} && cmake .. && make -j16'
         subprocess.call(build_command, shell=True)
 
         # Benchmark
@@ -70,8 +69,7 @@ def generate_timings(dataset_path: str, other_branch_or_hash: str,
         output_dir = os.path.join(output_root, branch_str)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
-        threedmatch_binary_path = os.path.join(build_dir,
-                                               'executables/fuse_3dmatch')
+        threedmatch_binary_path = os.path.join(build_dir, 'executables/fuse_3dmatch')
         threedmatch.run_multiple(num_runs,
                                  threedmatch_binary_path,
                                  dataset_path,
@@ -93,24 +91,20 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description=
-        "Generate a graph which compares the timers between the current and another branch/hash."
-    )
-    parser.add_argument("dataset_base_path",
-                        metavar="dataset_base_path",
+        'Generate a graph which compares the timers between the current and another branch/hash.')
+    parser.add_argument('dataset_base_path',
+                        metavar='dataset_base_path',
                         type=str,
-                        help="Path to the 3DMatch dataset root directory.")
-    parser.add_argument(
-        "other_branch_or_hash",
-        metavar="other_branch_or_hash",
-        type=str,
-        help="The branch name or commit hash to compare against.")
-    parser.add_argument(
-        "--num_runs",
-        metavar="num_runs",
-        type=int,
-        default=5,
-        help="The number of experiments over which to average the timings.")
+                        help='Path to the 3DMatch dataset root directory.')
+    parser.add_argument('other_branch_or_hash',
+                        metavar='other_branch_or_hash',
+                        type=str,
+                        help='The branch name or commit hash to compare against.')
+    parser.add_argument('--num_runs',
+                        metavar='num_runs',
+                        type=int,
+                        default=5,
+                        help='The number of experiments over which to average the timings.')
 
     args = parser.parse_args()
-    generate_timings(args.dataset_base_path, args.other_branch_or_hash,
-                     args.num_runs)
+    generate_timings(args.dataset_base_path, args.other_branch_or_hash, args.num_runs)

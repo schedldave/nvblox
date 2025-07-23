@@ -23,10 +23,10 @@ namespace nvblox {
 namespace timing {
 
 uint32_t colorToUint32(const Color& color) {
-  return 0xFF << 24 |                            // NOLINT
-         static_cast<uint32_t>(color.r) << 16 |  // NOLINT
-         static_cast<uint32_t>(color.g) << 8 |   // NOLINT
-         static_cast<uint32_t>(color.b);         // NOLINT
+  return 0xFF << 24 |                              // NOLINT
+         static_cast<uint32_t>(color.r()) << 16 |  // NOLINT
+         static_cast<uint32_t>(color.g()) << 8 |   // NOLINT
+         static_cast<uint32_t>(color.b());         // NOLINT
 }
 
 const uint32_t nxtx_ranges_colors[] = {

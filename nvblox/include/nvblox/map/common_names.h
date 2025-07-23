@@ -1,5 +1,5 @@
 /*
-Copyright 2022-2023 NVIDIA CORPORATION
+Copyright 2025 NVIDIA CORPORATION
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,16 +23,32 @@ limitations under the License.
 
 namespace nvblox {
 
+// Tsdf
 using TsdfBlock = VoxelBlock<TsdfVoxel>;
 using TsdfLayer = VoxelBlockLayer<TsdfVoxel>;
+
+// Freespace
 using FreespaceBlock = VoxelBlock<FreespaceVoxel>;
 using FreespaceLayer = VoxelBlockLayer<FreespaceVoxel>;
+
+// Occupancy
 using OccupancyBlock = VoxelBlock<OccupancyVoxel>;
 using OccupancyLayer = VoxelBlockLayer<OccupancyVoxel>;
+
+// Esdf
 using EsdfBlock = VoxelBlock<EsdfVoxel>;
 using EsdfLayer = VoxelBlockLayer<EsdfVoxel>;
+
+// Appearance
 using ColorBlock = VoxelBlock<ColorVoxel>;
 using ColorLayer = VoxelBlockLayer<ColorVoxel>;
-using MeshLayer = BlockLayer<MeshBlock>;
+using FeatureBlock = VoxelBlock<FeatureVoxel>;
+using FeatureLayer = VoxelBlockLayer<FeatureVoxel>;
+
+// Mesh
+using ColorMeshBlock = MeshBlock<Color>;
+using ColorMeshLayer = MeshBlockLayer<Color>;
+using FeatureMeshBlock = MeshBlock<FeatureArray>;
+using FeatureMeshLayer = MeshBlockLayer<FeatureArray>;
 
 }  // namespace nvblox

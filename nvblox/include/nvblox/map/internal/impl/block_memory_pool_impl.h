@@ -20,10 +20,11 @@ limitations under the License.
 namespace nvblox {
 
 template <class BlockType>
-BlockMemoryPool<BlockType>::BlockMemoryPool(const MemoryType memory_type,
-                                            const int num_preallocated_blocks)
-    : memory_type_(memory_type) {
-  expand(num_preallocated_blocks, CudaStreamOwning());
+BlockMemoryPool<BlockType>::BlockMemoryPool(const BlockMemoryPoolParams params)
+    : params_(params) {
+  if (params_.num_preallocated_blocks > 0) {
+    expand(params_.num_preallocated_blocks, CudaStreamOwning());
+  }
 }
 
 template <class BlockType>
@@ -32,14 +33,16 @@ typename BlockType::Ptr BlockMemoryPool<BlockType>::popBlock(
   // Zero blocks that are being re-used
   if (!recycled_blocks_.empty()) {
     initializeBlocksAsync<BlockType>(recycled_blocks_, cuda_stream,
-                                     memory_type_);
+                                     params_.memory_type);
     recycled_blocks_.clearNoDeallocate();
     cuda_stream.synchronize();
   }
 
-  // Expand if needed
+  // Expand if needed.
   if (blocks_.size() == 0) {
-    expand(kExpansionFactor * num_allocated_blocks_, cuda_stream);
+    expand(std::max(1, static_cast<int>((params_.expansion_factor - 1) *
+                                        num_allocated_blocks_)),
+           cuda_stream);
   }
 
   // Return a ready-to-use block
@@ -58,12 +61,13 @@ template <class BlockType>
 void BlockMemoryPool<BlockType>::expand(const size_t num_blocks_to_allocate,
                                         const CudaStream& cuda_stream) {
   for (size_t i = 0; i < num_blocks_to_allocate; ++i) {
-    blocks_.push(BlockType::allocateAsync(memory_type_, cuda_stream));
+    blocks_.push(BlockType::allocateAsync(params_.memory_type, cuda_stream));
   }
   num_allocated_blocks_ += num_blocks_to_allocate;
 
-  LOG(INFO) << "Expanding the memory pool with " << num_blocks_to_allocate
-            << " blocks. Number of allocated blocks: " << num_allocated_blocks_;
+  VLOG(5) << "Expanding the memory pool with " << num_blocks_to_allocate
+          << " blocks. Number of allocated blocks: " << num_allocated_blocks_
+          << ". Size in mb: " << (numAllocatedBytes() >> 20);
 
   cuda_stream.synchronize();
 }

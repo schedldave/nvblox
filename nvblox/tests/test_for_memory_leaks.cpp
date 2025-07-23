@@ -118,14 +118,15 @@ TEST(MemoryLeakTest, 3DMatchMeshing) {
 
   constexpr int kNumRounds = 100;
   // Generate a mesh
-  MeshIntegrator mesh_integrator;
-  MeshLayer mesh_layer_gpu(kBlockSizeM, MemoryType::kDevice);
+  ColorMeshIntegrator mesh_integrator;
+  ColorMeshLayer mesh_layer_gpu(kBlockSizeM, MemoryType::kDevice);
   for (int i = 0; i < kNumRounds; i++) {
     std::cout << "i: " << i << std::endl;
     // Integrate depth
     TsdfLayer tsdf_layer(kVoxelSizeM, MemoryType::kDevice);
-    tsdf_integrator.integrateFrame(depth_image_1, Transform::Identity(), camera,
-                                   &tsdf_layer);
+    tsdf_integrator.integrateFrame(
+        MaskedDepthImageConstView(depth_image_1, kMaskActiveEverywhere),
+        Transform::Identity(), camera, &tsdf_layer);
 
     EXPECT_TRUE(mesh_integrator.integrateMeshFromDistanceField(
         tsdf_layer, &mesh_layer_gpu));

@@ -60,7 +60,7 @@ TEST(LayerCakeTest, create) {
   EXPECT_TRUE(cake.exists<EsdfLayer>());
   EXPECT_TRUE(cake.exists<BooleanLayer>());
 
-  EXPECT_FALSE(cake.exists<MeshLayer>());
+  EXPECT_FALSE(cake.exists<ColorMeshLayer>());
 }
 
 TEST(LayerCakeTest, moveOperations) {
@@ -68,45 +68,31 @@ TEST(LayerCakeTest, moveOperations) {
   LayerCake cake_1 =
       LayerCake::create<TsdfLayer, ColorLayer>(voxel_size, MemoryType::kDevice);
 
-  LayerCake cake_2 =
-      LayerCake::create<MeshLayer, EsdfLayer>(voxel_size, MemoryType::kDevice);
+  LayerCake cake_2 = LayerCake::create<ColorMeshLayer, EsdfLayer>(
+      voxel_size, MemoryType::kDevice);
 
   cake_1 = std::move(cake_2);
 
   EXPECT_FALSE(cake_1.exists<TsdfLayer>());
   EXPECT_FALSE(cake_1.exists<ColorLayer>());
-  EXPECT_TRUE(cake_1.exists<MeshLayer>());
+  EXPECT_TRUE(cake_1.exists<ColorMeshLayer>());
   EXPECT_TRUE(cake_1.exists<EsdfLayer>());
 
   EXPECT_FALSE(cake_2.exists<TsdfLayer>());
   EXPECT_FALSE(cake_2.exists<ColorLayer>());
-  EXPECT_FALSE(cake_2.exists<MeshLayer>());
+  EXPECT_FALSE(cake_2.exists<ColorMeshLayer>());
   EXPECT_FALSE(cake_2.exists<EsdfLayer>());
 }
 
 TEST(LayerCakeTest, voxelAndBlockSize) {
   const float voxel_size = 0.1f;
-  LayerCake cake =
-      LayerCake::create<TsdfLayer, MeshLayer>(voxel_size, MemoryType::kDevice);
+  LayerCake cake = LayerCake::create<TsdfLayer, ColorMeshLayer>(
+      voxel_size, MemoryType::kDevice);
 
   const float expected_block_size = voxel_size * TsdfBlock::kVoxelsPerSide;
 
   EXPECT_EQ(cake.getPtr<TsdfLayer>()->voxel_size(), 0.1f);
-  EXPECT_EQ(cake.getPtr<MeshLayer>()->block_size(), expected_block_size);
-}
-
-TEST(LayerCakeTest, differentMemoryTypes) {
-  const float voxel_size = 0.1f;
-
-  LayerCake cake =
-      LayerCake::create<TsdfLayer, ColorLayer, EsdfLayer, MeshLayer>(
-          voxel_size, MemoryType::kDevice, MemoryType::kUnified,
-          MemoryType::kHost, MemoryType::kDevice);
-
-  EXPECT_EQ(cake.get<TsdfLayer>().memory_type(), MemoryType::kDevice);
-  EXPECT_EQ(cake.get<ColorLayer>().memory_type(), MemoryType::kUnified);
-  EXPECT_EQ(cake.get<EsdfLayer>().memory_type(), MemoryType::kHost);
-  EXPECT_EQ(cake.get<MeshLayer>().memory_type(), MemoryType::kDevice);
+  EXPECT_EQ(cake.getPtr<ColorMeshLayer>()->block_size(), expected_block_size);
 }
 
 TEST(LayerCakeTest, sharedPtrTest) {

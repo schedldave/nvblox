@@ -37,7 +37,6 @@ limitations under the License.
 
 #include <math.h>
 #include <stdio.h>
-#include "nvblox/utils/logging.h"
 
 #include <algorithm>
 #include <ostream>

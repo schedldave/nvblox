@@ -140,7 +140,9 @@ class SphereTracingTest : public ::testing::Test {
                                         &depth_image);
 
       // Integrate this depth image.
-      integrator.integrateFrame(depth_image, T_S_C, *camera_ptr_, layer_ptr);
+      integrator.integrateFrame(
+          MaskedDepthImageConstView(depth_image, kMaskActiveEverywhere), T_S_C,
+          *camera_ptr_, layer_ptr);
     }
   }
 };
@@ -414,7 +416,7 @@ void generateErrorImageFromSubsampledImage(const DepthImage& original,
       float subsampled_depth = 0.0f;
 
       const bool subsampled_success = interpolation::interpolate2DLinear(
-          subsampled, u_px_subsampled, &subsampled_depth);
+          DepthImageConstView(subsampled), u_px_subsampled, &subsampled_depth);
 
       if (original_success && subsampled_success) {
         const float depth_error = std::abs(original_depth - subsampled_depth);

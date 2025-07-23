@@ -20,7 +20,7 @@ limitations under the License.
 
 #include "nvblox/core/internal/error_check.h"
 #include "nvblox/geometry/transforms.h"
-#include "nvblox/utils/logging.h"
+#include "nvblox/interpolation/interpolation_2d.h"
 
 namespace nvblox {
 
@@ -254,6 +254,65 @@ bool areLidarsEqual(const Lidar& lidar_1, const Lidar& lidar_2,
   // Check that the cameras have the same intrinsics
   const bool same_intrinsics = (lidar_1 == lidar_2);
   return same_extrinsics && same_intrinsics;
+}
+
+__device__ bool interpolateLidarImage(
+    const Lidar& lidar, const Vector3f& p_voxel_center_C,
+    const DepthImageConstView frame, const Vector2f& u_px,
+    const float linear_interpolation_max_allowable_difference_m,
+    const float nearest_interpolation_max_allowable_squared_dist_to_ray_m,
+    float* image_value, Index2D* u_px_closest_ptr) {
+  NVBLOX_CHECK(u_px_closest_ptr != nullptr,
+               "passing nullptr to interpolateLidarImage");
+  // Try linear interpolation first
+  interpolation::Interpolation2DNeighbours<float> neighbours;
+  bool linear_interpolation_success = interpolation::interpolate2DLinear<
+      float, interpolation::checkers::FloatPixelGreaterThanZero>(
+      frame, u_px, image_value, &neighbours);
+
+  // Additional check
+  // Check that we're not interpolating over a discontinuity
+  // NOTE(alexmillane): This prevents smearing are object edges.
+  if (linear_interpolation_success) {
+    const float d00 = fabsf(neighbours.p00 - *image_value);
+    const float d01 = fabsf(neighbours.p01 - *image_value);
+    const float d10 = fabsf(neighbours.p10 - *image_value);
+    const float d11 = fabsf(neighbours.p11 - *image_value);
+    float maximum_depth_difference_to_neighbours =
+        fmax(fmax(d00, d01), fmax(d10, d11));
+    if (maximum_depth_difference_to_neighbours >
+        linear_interpolation_max_allowable_difference_m) {
+      linear_interpolation_success = false;
+    }
+  }
+
+  // If linear didn't work - try nearest neighbour interpolation
+  if (!linear_interpolation_success) {
+    if (!interpolation::interpolate2DClosest<
+            float, interpolation::checkers::FloatPixelGreaterThanZero>(
+            frame, u_px, image_value, u_px_closest_ptr)) {
+      // If we can't successfully do closest, fail to intgrate this voxel.
+      return false;
+    }
+    // Additional check
+    // Check that this voxel is close to the ray passing through the pixel.
+    // Note(alexmillane): This is to prevent large numbers of voxels
+    // being integrated by a single pixel at long ranges.
+    const Vector3f closest_ray =
+        lidar.vectorFromPixelIndices(*u_px_closest_ptr);
+    const float off_ray_squared_distance =
+        (p_voxel_center_C - p_voxel_center_C.dot(closest_ray) * closest_ray)
+            .squaredNorm();
+    if (off_ray_squared_distance >
+        nearest_interpolation_max_allowable_squared_dist_to_ray_m) {
+      return false;
+    }
+  }
+
+  // TODO(alexmillane): We should add clearing rays, even in the case both
+  // interpolations fail.
+
+  return true;
 }
 
 }  // namespace nvblox

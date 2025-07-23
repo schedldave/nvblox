@@ -54,7 +54,7 @@ class SphereBenchmark {
   // Actual layers.
   TsdfLayer tsdf_layer_;
   EsdfLayer esdf_layer_;
-  MeshLayer mesh_layer_;
+  ColorMeshLayer mesh_layer_;
 
   // Simulated camera.
   constexpr static float fu_ = 300;
@@ -67,9 +67,9 @@ class SphereBenchmark {
 };
 
 SphereBenchmark::SphereBenchmark()
-    : tsdf_layer_(kVoxelSize, MemoryType::kDevice),
-      esdf_layer_(kVoxelSize, MemoryType::kUnified),
-      mesh_layer_(kBlockSize, MemoryType::kUnified),
+    : tsdf_layer_(kVoxelSize, BlockMemoryPoolParams(MemoryType::kDevice)),
+      esdf_layer_(kVoxelSize, BlockMemoryPoolParams(MemoryType::kUnified)),
+      mesh_layer_(kBlockSize, BlockMemoryPoolParams(MemoryType::kUnified)),
       camera_(Camera(fu_, fv_, cu_, cv_, width_, height_)) {}
 
 // C++ <17 requires declaring static constexpr variables
@@ -84,7 +84,7 @@ constexpr float SphereBenchmark::kMaxEnvironmentDimension;
 void SphereBenchmark::runBenchmark() {
   // Create an integrator with default settings.
   ProjectiveTsdfIntegrator integrator;
-  MeshIntegrator mesh_integrator;
+  ColorMeshIntegrator mesh_integrator;
   EsdfIntegrator esdf_integrator;
   esdf_integrator.max_esdf_distance_m(4.0f);
 
@@ -136,8 +136,9 @@ void SphereBenchmark::runBenchmark() {
     // Integrate this depth image.
     {
       timing::Timer integration_timer("benchmark/integrate_tsdf");
-      integrator.integrateFrame(depth_frame, T_S_C, camera_, &tsdf_layer_,
-                                &updated_blocks);
+      integrator.integrateFrame(
+          MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_S_C,
+          camera_, &tsdf_layer_, &updated_blocks);
     }
 
     // Integrate the mesh.
@@ -158,7 +159,7 @@ void SphereBenchmark::runBenchmark() {
 
 bool SphereBenchmark::outputMesh(const std::string& ply_output_path) {
   timing::Timer timer_write("mesh/write");
-  return io::outputMeshLayerToPly(mesh_layer_, ply_output_path);
+  return io::outputColorMeshLayerToPly(mesh_layer_, ply_output_path);
 }
 
 }  // namespace nvblox

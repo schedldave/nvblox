@@ -129,9 +129,10 @@ TEST(FuserTest, CommandLineFlags) {
               1.0, kEps);
 
   // Mesh integrator
-  EXPECT_NEAR(fuser->static_mapper()->mesh_integrator().min_weight(), 14.0f,
-              kEps);
-  EXPECT_EQ(fuser->static_mapper()->mesh_integrator().weld_vertices(), false);
+  EXPECT_NEAR(fuser->static_mapper()->color_mesh_integrator().min_weight(),
+              14.0f, kEps);
+  EXPECT_EQ(fuser->static_mapper()->color_mesh_integrator().weld_vertices(),
+            false);
 
   // ESDF integrator
   EXPECT_NEAR(fuser->static_mapper()->esdf_integrator().min_weight(), 16.0f,

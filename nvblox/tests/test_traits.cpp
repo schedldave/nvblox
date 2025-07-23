@@ -26,12 +26,12 @@ using namespace nvblox;
 TEST(TraitsTest, LayerTraits) {
   // Existing layer types
   EXPECT_TRUE(traits::is_voxel_layer<TsdfLayer>());
-  EXPECT_FALSE(traits::is_voxel_layer<MeshLayer>());
+  EXPECT_FALSE(traits::is_voxel_layer<ColorMeshLayer>());
   EXPECT_TRUE(traits::is_voxel_layer<FloatVoxelLayer>());
   EXPECT_FALSE(traits::is_voxel_layer<FloatBlockLayer>());
   // New layer types
   static_assert(traits::is_voxel_layer<TsdfLayer>());
-  static_assert(!traits::is_voxel_layer<MeshLayer>());
+  static_assert(!traits::is_voxel_layer<ColorMeshLayer>());
   static_assert(traits::is_voxel_layer<FloatVoxelLayer>());
   static_assert(!traits::is_voxel_layer<FloatBlockLayer>());
 }

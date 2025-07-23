@@ -1,5 +1,5 @@
 /*
-Copyright 2022-2023 NVIDIA CORPORATION
+Copyright 2025 NVIDIA CORPORATION
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ namespace nvblox {
 
 // GPULayer Template specialiations are slow to build. Therefore they are kept
 // in individual source files to allow for parallel compilation.
-template class GPULayerView<MeshBlock>;
+template class GPULayerView<ColorMeshBlock>;
+template class GPULayerView<FeatureMeshBlock>;
 
 }  // namespace nvblox

@@ -44,6 +44,7 @@ struct SerializedLayer {
 
 using SerializedTsdfLayer = SerializedLayer<TsdfVoxel>;
 using SerializedColorLayer = SerializedLayer<ColorVoxel>;
+using SerializedFeatureLayer = SerializedLayer<FeatureVoxel>;
 using SerializedOccupancyLayer = SerializedLayer<OccupancyVoxel>;
 using SerializedFreespaceLayer = SerializedLayer<FreespaceVoxel>;
 using SerializedEsdfLayer = SerializedLayer<EsdfVoxel>;
@@ -71,13 +72,13 @@ class LayerSerializerGpu {
   /// layer                       Layer to serialize
   /// block_indices_to_serialize  Block indices to serialize
   /// cuda_stream                 Cuda stream. Will be synced
-  std::shared_ptr<const SerializedLayerType> serialize(
+  std::shared_ptr<SerializedLayerType> serialize(
       const LayerType& layer,
       const std::vector<Index3D>& block_indices_to_serialize,
       const CudaStream& cuda_stream);
 
   /// Get the serialized layer produced by the last call to serialize()
-  std::shared_ptr<const SerializedLayerType> getSerializedLayer() {
+  std::shared_ptr<SerializedLayerType> getSerializedLayer() {
     return serialized_layer_;
   }
 
@@ -89,6 +90,7 @@ class LayerSerializerGpu {
 
 using TsdfLayerSerializerGpu = LayerSerializerGpu<TsdfLayer>;
 using ColorLayerSerializerGpu = LayerSerializerGpu<ColorLayer>;
+using FeatureLayerSerializerGpu = LayerSerializerGpu<FeatureLayer>;
 using OccupancyLayerSerializerGpu = LayerSerializerGpu<OccupancyLayer>;
 using FreespaceLayerSerializerGpu = LayerSerializerGpu<FreespaceLayer>;
 using EsdfLayerSerializerGpu = LayerSerializerGpu<EsdfLayer>;

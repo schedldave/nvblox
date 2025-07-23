@@ -16,6 +16,7 @@ limitations under the License.
 #pragma once
 
 #include "nvblox/core/types.h"
+#include "nvblox/sensors/image.h"
 
 namespace nvblox {
 
@@ -141,6 +142,14 @@ __host__ inline std::ostream& operator<<(std::ostream& os, const Lidar& camera);
 __host__ inline bool areLidarsEqual(const Lidar& lidar_1, const Lidar& lidar_2,
                                     const Transform& T_L_C1,
                                     const Transform& T_L_C2);
+
+// LiDAR GPU interpolation
+__device__ inline bool interpolateLidarImage(
+    const Lidar& lidar, const Vector3f& p_voxel_center_C,
+    const DepthImageConstView frame, const Vector2f& u_px,
+    const float linear_interpolation_max_allowable_difference_m,
+    const float nearest_interpolation_max_allowable_squared_dist_to_ray_m,
+    float* image_value, Index2D* u_px_closest_ptr);
 
 }  // namespace nvblox
 

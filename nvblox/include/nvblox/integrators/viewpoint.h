@@ -28,7 +28,7 @@ struct ViewBasedInclusionData {
   ViewBasedInclusionData() = delete;
   explicit ViewBasedInclusionData(
       Transform _T_L_C, Camera _camera,
-      std::optional<const DepthImage*> _depth_image = std::nullopt,
+      std::optional<DepthImageConstView> _depth_image = std::nullopt,
       std::optional<float> _max_view_distance_m = std::nullopt,
       std::optional<float> _truncation_distance_m = std::nullopt);
   ~ViewBasedInclusionData() = default;
@@ -38,7 +38,7 @@ struct ViewBasedInclusionData {
   /// The intrinsics of the camera for view-based decay-exclusion.
   Camera camera;
   /// The depth image tested for valid depth during view-based decay-exclusion.
-  std::optional<const DepthImage*> depth_image;
+  std::optional<DepthImageConstView> depth_image;
   /// The maximum depth at which a voxel is considered in view. If these are not
   /// provided the max distance is infinite.
   std::optional<float> max_view_distance_m;

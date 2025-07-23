@@ -32,6 +32,7 @@ typename VoxelBlock<VoxelType>::Ptr VoxelBlock<VoxelType>::allocateAsync(
 
   return voxel_block_ptr;
 }
+
 template <typename VoxelType>
 void VoxelBlock<VoxelType>::initAsync(VoxelBlock<VoxelType>* block_ptr,
                                       const MemoryType memory_type,

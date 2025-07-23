@@ -15,9 +15,11 @@ limitations under the License.
 */
 #pragma once
 
+#include "nvblox/core/array.h"
 #include "nvblox/core/bitmask.h"
 #include "nvblox/core/color.h"
 #include "nvblox/core/cuda_stream.h"
+#include "nvblox/core/feature_array.h"
 #include "nvblox/core/hash.h"
 #include "nvblox/core/indexing.h"
 #include "nvblox/core/iterator.h"
@@ -45,7 +47,7 @@ limitations under the License.
 #include "nvblox/integrators/occupancy_decay_integrator.h"
 #include "nvblox/integrators/occupancy_decay_integrator_params.h"
 #include "nvblox/integrators/occupancy_integrator_params.h"
-#include "nvblox/integrators/projective_color_integrator.h"
+#include "nvblox/integrators/projective_appearance_integrator.h"
 #include "nvblox/integrators/projective_integrator_params.h"
 #include "nvblox/integrators/projective_occupancy_integrator.h"
 #include "nvblox/integrators/projective_tsdf_integrator.h"
@@ -100,7 +102,6 @@ limitations under the License.
 #include "nvblox/serialization/layer_streamer.h"
 #include "nvblox/serialization/mesh_serializer_gpu.h"
 #include "nvblox/utils/delays.h"
-#include "nvblox/utils/logging.h"
 #include "nvblox/utils/nvblox_art.h"
 #include "nvblox/utils/nvtx_ranges.h"
 #include "nvblox/utils/params.h"

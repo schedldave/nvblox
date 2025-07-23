@@ -21,7 +21,7 @@ from pathlib import Path
 from nvblox_common.voxel_grid import VoxelGrid
 
 
-def visualize_mesh_ply(ply_path: Path, do_normal_coloring: bool = False):
+def visualize_mesh_ply(ply_path: Path, do_normal_coloring: bool = False) -> None:
     """
     Visualize a mesh that is stored as ply file in o3d.
 
@@ -47,19 +47,20 @@ def visualize_mesh_ply(ply_path: Path, do_normal_coloring: bool = False):
     vis.destroy_window()
 
 
-def visualize_esdf_voxel_grid(voxel_grid: VoxelGrid,
-                              max_visualization_dist_vox: int):
+def visualize_esdf_voxel_grid(voxel_grid: VoxelGrid, max_visualization_dist_vox: int) -> None:
     """
     Visualize a esdf of type VoxelGrid in o3d.
 
     Args:
     ----
     voxel_grid (VoxelGrid): the esdf voxel grid
-    max_visualization_dist_vox (int): Max. distance in voxels to the surface 
+    max_visualization_dist_vox (int): Max. distance in voxels to the surface
                                           to show a voxel in the esdf pointcloud.
 
     """
-    assert not voxel_grid.is_occupancy_grid, "This is an occupancy voxel grid. I only visualize esdf voxel grids."
+    assert not voxel_grid.is_occupancy_grid, 'This is an occupancy \
+        voxel grid. I only visualize esdf voxel grids.'
+
     voxel_centers = voxel_grid.get_valid_voxel_centers()
     intensities = voxel_grid.get_valid_voxel_values()
     voxel_size = voxel_grid.get_voxel_size()
@@ -71,9 +72,8 @@ def visualize_esdf_voxel_grid(voxel_grid: VoxelGrid,
     points_on_surface = voxel_centers[surface_indices]
 
     # Normalize the intensities
-    intensities_normalized = (
-        intensities_on_surface - intensities_on_surface.min()) / (
-            intensities_on_surface.max() - intensities_on_surface.min())
+    intensities_normalized = (intensities_on_surface - intensities_on_surface.min()) / (
+        intensities_on_surface.max() - intensities_on_surface.min())
 
     # Get the colors corresponding to the intensities
     cmap = plt.get_cmap('coolwarm')
@@ -86,7 +86,7 @@ def visualize_esdf_voxel_grid(voxel_grid: VoxelGrid,
     o3d.visualization.draw_geometries([point_cloud])
 
 
-def visualize_occupancy_voxel_grid(voxel_grid: VoxelGrid):
+def visualize_occupancy_voxel_grid(voxel_grid: VoxelGrid) -> None:
     """
     Visualize an occupancy grid of type VoxelGrid in o3d.
 
@@ -95,11 +95,13 @@ def visualize_occupancy_voxel_grid(voxel_grid: VoxelGrid):
     voxel_grid (VoxelGrid): the occupancy voxel grid
 
     """
-    assert voxel_grid.is_occupancy_grid, "This is an esdf voxel grid. I only visualize occupancy voxel grids."
+    assert voxel_grid.is_occupancy_grid, 'This is an esdf voxel grid. \
+        I only visualize occupancy voxel grids.'
+
     voxel_centers = voxel_grid.get_valid_voxel_centers()
     occupancy_values = voxel_grid.get_valid_voxel_values()
 
-    occupied_voxel_indices = np.where(occupancy_values == True)
+    occupied_voxel_indices = np.where(bool(occupancy_values))
     occupied_voxel_centers = voxel_centers[occupied_voxel_indices]
 
     point_cloud = o3d.geometry.PointCloud()

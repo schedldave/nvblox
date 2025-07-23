@@ -18,7 +18,7 @@ limitations under the License.
 namespace nvblox {
 
 template <class LayerType>
-std::shared_ptr<const SerializedLayer<typename LayerType::BlockType::VoxelType>>
+std::shared_ptr<SerializedLayer<typename LayerType::BlockType::VoxelType>>
 LayerSerializerGpu<LayerType>::serialize(
     const LayerType& layer,
     const std::vector<Index3D>& block_indices_to_serialize,

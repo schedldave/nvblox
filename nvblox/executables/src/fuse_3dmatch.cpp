@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include <gflags/gflags.h>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/datasets/3dmatch.h"
 #include "nvblox/executables/fuser.h"

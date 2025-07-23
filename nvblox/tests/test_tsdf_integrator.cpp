@@ -113,7 +113,9 @@ TEST_P(TsdfIntegratorTestParameterized, ReconstructPlane) {
   const Transform T_L_C = Transform::Identity();
 
   integrator_ptr->truncation_distance_vox(10.0f);
-  integrator_ptr->integrateFrame(depth_frame, T_L_C, camera_, &layer_);
+  integrator_ptr->integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+      camera_, &layer_);
 
   // Sample some points on the plane, within the camera view.
   constexpr int kNumberOfPointsToCheck = 1000;
@@ -221,8 +223,12 @@ TEST_F(TsdfIntegratorTestParameterized, SphereSceneTest) {
     scene.generateDepthImageFromScene(camera_, T_S_C, kMaxDist, &depth_frame);
 
     // Integrate this depth image.
-    integrator_cpu.integrateFrame(depth_frame, T_S_C, camera_, &layer_cpu);
-    integrator_gpu.integrateFrame(depth_frame, T_S_C, camera_, &layer_gpu);
+    integrator_cpu.integrateFrame(
+        MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_S_C,
+        camera_, &layer_cpu);
+    integrator_gpu.integrateFrame(
+        MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_S_C,
+        camera_, &layer_gpu);
   }
 
   // Now do some checks...
@@ -268,7 +274,7 @@ TEST_F(TsdfIntegratorTestParameterized, SphereSceneTest) {
   }
 
   // Compare the layers
-  ASSERT_GE(layer_cpu.numAllocatedBlocks(), layer_gpu.numAllocatedBlocks());
+  ASSERT_GE(layer_cpu.numBlocks(), layer_gpu.numBlocks());
   size_t total_num_voxels_observed = 0;
   size_t num_voxels_over_threshold = 0;
   for (const Index3D& block_index : layer_gpu.getAllBlockIndices()) {
@@ -311,7 +317,7 @@ TEST_F(TsdfIntegratorTest, MarkUnobservedFree) {
   constexpr float voxel_size_m = 0.1;
   TsdfLayer tsdf_layer(voxel_size_m, MemoryType::kUnified);
 
-  EXPECT_EQ(tsdf_layer.numAllocatedBlocks(), 0);
+  EXPECT_EQ(tsdf_layer.numBlocks(), 0);
 
   // Do the observation.
   const Vector3f center(0.0, 0.0, 0.0);
@@ -321,7 +327,7 @@ TEST_F(TsdfIntegratorTest, MarkUnobservedFree) {
   integrator.markUnobservedFreeInsideRadius(center, radius, &tsdf_layer);
 
   // Check some blocks got allocated
-  CHECK_GT(tsdf_layer.numAllocatedBlocks(), 0);
+  CHECK_GT(tsdf_layer.numBlocks(), 0);
 
   // Check the blocks
   const float truncation_distance_m =
@@ -372,8 +378,9 @@ TEST_F(TsdfIntegratorTest, WeightingFunction) {
 
   // Integrate a frame
   std::vector<Index3D> updated_blocks;
-  integrator.integrateFrame(depth_frame, Transform::Identity(), camera_,
-                            &layer_, &updated_blocks);
+  integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere),
+      Transform::Identity(), camera_, &layer_, &updated_blocks);
   // Check that something actually happened
   EXPECT_GT(updated_blocks.size(), 0);
 
@@ -407,10 +414,11 @@ TEST_F(TsdfIntegratorTest, WeightingFunction) {
   integrator.weighting_function_type(kTestedWeightFunctionType);
   layer_.clear();
   updated_blocks.clear();
-  EXPECT_EQ(layer_.numAllocatedBlocks(), 0);
+  EXPECT_EQ(layer_.numBlocks(), 0);
   EXPECT_EQ(updated_blocks.size(), 0);
-  integrator.integrateFrame(depth_frame, Transform::Identity(), camera_,
-                            &layer_, &updated_blocks);
+  integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere),
+      Transform::Identity(), camera_, &layer_, &updated_blocks);
   // Check that something actually happened
   EXPECT_GT(updated_blocks.size(), 0);
   EXPECT_EQ(integrator.weighting_function_type(), kTestedWeightFunctionType);
@@ -479,8 +487,9 @@ TEST_F(TsdfIntegratorTest, mask) {
   // First integrate without mask to create blocks
   ProjectiveTsdfIntegrator integrator;
   std::vector<Index3D> updated_blocks;
-  integrator.integrateFrame(depth_frame, Transform::Identity(), camera_,
-                            &layer_, &updated_blocks);
+  integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere),
+      Transform::Identity(), camera_, &layer_, &updated_blocks);
   EXPECT_GT(updated_blocks.size(), 0);
 
   // Set distance of all blocks to some reference value

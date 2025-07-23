@@ -56,7 +56,7 @@ __device__ inline void voxelAndBlockIndexFromCudaThreadIndex(
 
 __device__ inline bool doesVoxelHaveDepthMeasurement(
     const Index3D& block_idx, const Index3D& voxel_idx, const Camera camera,
-    const float* image, int rows, int cols, const Transform T_C_L,
+    const DepthImageConstView image, const Transform T_C_L,
     const float block_size, const float max_integration_distance,
     const float truncation_distance_m) {
   // Project the voxel into the depth image
@@ -73,7 +73,7 @@ __device__ inline bool doesVoxelHaveDepthMeasurement(
   float surface_depth_measured;
   if (!interpolation::interpolate2DClosest<
           float, interpolation::checkers::FloatPixelGreaterThanZero>(
-          image, u_px, rows, cols, &surface_depth_measured)) {
+          image, u_px, &surface_depth_measured)) {
     return false;
   }
   // Check the distance from the surface

@@ -1,5 +1,5 @@
 matplotlib
-numpy==1.24 # Fixed version of numpy for compatibility with other modules.
+numpy
 plotly
 open3d
 pandas

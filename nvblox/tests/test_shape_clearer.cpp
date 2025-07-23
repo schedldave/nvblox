@@ -36,7 +36,7 @@ class ShapeClearerTest : public ::testing::Test {
     // Generate a TSDF layer
     scene_ = test_utils::getSphereInBox();
     scene_.generateLayerFromScene(kTruncationDistanceMeters, &layer_);
-    EXPECT_GT(layer_.numAllocatedBlocks(), 0);
+    EXPECT_GT(layer_.numBlocks(), 0);
   }
 
   primitives::Scene scene_;
@@ -67,7 +67,7 @@ TYPED_TEST(ShapeClearerTest, EmptyLayer) {
   ShapeClearer<VoxelBlockLayer<TypeParam>> clearer;
   const std::vector<Index3D> updated_blocks = clearer.clear(shape_vec, &layer);
 
-  EXPECT_EQ(layer.numAllocatedBlocks(), 0);
+  EXPECT_EQ(layer.numBlocks(), 0);
   EXPECT_TRUE(updated_blocks.empty());
 }
 

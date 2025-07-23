@@ -73,16 +73,16 @@ TEST(ColorImageTest, NearbyImagesSimilar) {
   // - We allow up to 10% of pixels to have a "big" difference.
   constexpr float kBigDifferenceThreshold = 50.0;
   constexpr float kAllowableBigDifferencePixelsRatio = 0.10;
-  CHECK_EQ(image_1.rows(), image_2.rows());
-  CHECK_EQ(image_1.cols(), image_2.cols());
+  EXPECT_EQ(image_1.rows(), image_2.rows());
+  EXPECT_EQ(image_1.cols(), image_2.cols());
   int num_big_diff_pixels = 0;
   for (int i = 0; i < image_2.numel(); i++) {
     const float r_diff =
-        static_cast<float>(image_1(i).r) - static_cast<float>(image_2(i).r);
+        static_cast<float>(image_1(i).r()) - static_cast<float>(image_2(i).r());
     const float g_diff =
-        static_cast<float>(image_1(i).g) - static_cast<float>(image_2(i).g);
+        static_cast<float>(image_1(i).g()) - static_cast<float>(image_2(i).g());
     const float b_diff =
-        static_cast<float>(image_1(i).b) - static_cast<float>(image_2(i).b);
+        static_cast<float>(image_1(i).b()) - static_cast<float>(image_2(i).b());
     const float average_diff =
         (std::fabs(r_diff) + std::fabs(g_diff) + std::fabs(b_diff)) / 3.0f;
     if (average_diff > kBigDifferenceThreshold) {
@@ -104,42 +104,43 @@ TEST(ColorImageTest, InterpolationNearestNeighbour) {
   image(1, 0) = Color(1, 0, 0);
   image(1, 1) = Color(1, 1, 0);
 
+  ColorImageConstView view(image);
+
   // Note the switching in index order below. This is because images are set:
   //   image(row,col) = val
   // but interpolated:
   //   val = image(u_px(x,y)) = image(y,x)
   Color color;
   EXPECT_TRUE(interpolation::interpolate2D(
-      image, Vector2f(0.4, 0.4), &color, InterpolationType::kNearestNeighbor));
-  EXPECT_EQ(color.r, 0);
-  EXPECT_EQ(color.g, 0);
+      view, Vector2f(0.4, 0.4), &color, InterpolationType::kNearestNeighbor));
+  EXPECT_EQ(color.r(), 0);
+  EXPECT_EQ(color.g(), 0);
   EXPECT_TRUE(interpolation::interpolate2D(
-      image, Vector2f(0.4, 1.2), &color, InterpolationType::kNearestNeighbor));
-  EXPECT_EQ(color.r, 1);
-  EXPECT_EQ(color.g, 0);
+      view, Vector2f(0.4, 1.2), &color, InterpolationType::kNearestNeighbor));
+  EXPECT_EQ(color.r(), 1);
+  EXPECT_EQ(color.g(), 0);
   EXPECT_TRUE(interpolation::interpolate2D(
-      image, Vector2f(1.2, 0.4), &color, InterpolationType::kNearestNeighbor));
-  EXPECT_EQ(color.r, 0);
-  EXPECT_EQ(color.g, 1);
+      view, Vector2f(1.2, 0.4), &color, InterpolationType::kNearestNeighbor));
+  EXPECT_EQ(color.r(), 0);
+  EXPECT_EQ(color.g(), 1);
   EXPECT_TRUE(interpolation::interpolate2D(
-      image, Vector2f(1.2, 1.2), &color, InterpolationType::kNearestNeighbor));
-  EXPECT_EQ(color.r, 1);
-  EXPECT_EQ(color.g, 1);
+      view, Vector2f(1.2, 1.2), &color, InterpolationType::kNearestNeighbor));
+  EXPECT_EQ(color.r(), 1);
+  EXPECT_EQ(color.g(), 1);
 
   // Out of bounds
   EXPECT_FALSE(interpolation::interpolate2D(
-      image, Vector2f(-0.6, 0.0), &color, InterpolationType::kNearestNeighbor));
+      view, Vector2f(-0.6, 0.0), &color, InterpolationType::kNearestNeighbor));
   EXPECT_FALSE(interpolation::interpolate2D(
-      image, Vector2f(0.0, -0.6), &color, InterpolationType::kNearestNeighbor));
-  EXPECT_FALSE(
-      interpolation::interpolate2D(image, Vector2f(-0.6, -0.6), &color,
-                                   InterpolationType::kNearestNeighbor));
+      view, Vector2f(0.0, -0.6), &color, InterpolationType::kNearestNeighbor));
   EXPECT_FALSE(interpolation::interpolate2D(
-      image, Vector2f(2.1, 0.0), &color, InterpolationType::kNearestNeighbor));
+      view, Vector2f(-0.6, -0.6), &color, InterpolationType::kNearestNeighbor));
   EXPECT_FALSE(interpolation::interpolate2D(
-      image, Vector2f(0.0, 2.1), &color, InterpolationType::kNearestNeighbor));
+      view, Vector2f(2.1, 0.0), &color, InterpolationType::kNearestNeighbor));
   EXPECT_FALSE(interpolation::interpolate2D(
-      image, Vector2f(2.1, 2.1), &color, InterpolationType::kNearestNeighbor));
+      view, Vector2f(0.0, 2.1), &color, InterpolationType::kNearestNeighbor));
+  EXPECT_FALSE(interpolation::interpolate2D(
+      view, Vector2f(2.1, 2.1), &color, InterpolationType::kNearestNeighbor));
 }
 
 TEST(ColorImageTest, InterpolationLinear) {
@@ -150,42 +151,44 @@ TEST(ColorImageTest, InterpolationLinear) {
   image(1, 0) = Color(15, 5, 0);
   image(1, 1) = Color(15, 15, 0);
 
+  ColorImageConstView view(image);
+
   Color color;
-  EXPECT_TRUE(interpolation::interpolate2D(image, Vector2f(0.5, 0.5), &color,
+  EXPECT_TRUE(interpolation::interpolate2D(view, Vector2f(0.5, 0.5), &color,
                                            InterpolationType::kLinear));
-  EXPECT_EQ(color.r, 5);
-  EXPECT_EQ(color.g, 5);
-  EXPECT_TRUE(interpolation::interpolate2D(image, Vector2f(0.5, 0.6), &color,
+  EXPECT_EQ(color.r(), 5);
+  EXPECT_EQ(color.g(), 5);
+  EXPECT_TRUE(interpolation::interpolate2D(view, Vector2f(0.5, 0.6), &color,
                                            InterpolationType::kLinear));
-  EXPECT_EQ(color.r, 6);
-  EXPECT_EQ(color.g, 5);
-  EXPECT_TRUE(interpolation::interpolate2D(image, Vector2f(0.6, 0.5), &color,
+  EXPECT_EQ(color.r(), 6);
+  EXPECT_EQ(color.g(), 5);
+  EXPECT_TRUE(interpolation::interpolate2D(view, Vector2f(0.6, 0.5), &color,
                                            InterpolationType::kLinear));
-  EXPECT_EQ(color.r, 5);
-  EXPECT_EQ(color.g, 6);
-  EXPECT_TRUE(interpolation::interpolate2D(image, Vector2f(0.6, 0.6), &color,
+  EXPECT_EQ(color.r(), 5);
+  EXPECT_EQ(color.g(), 6);
+  EXPECT_TRUE(interpolation::interpolate2D(view, Vector2f(0.6, 0.6), &color,
                                            InterpolationType::kLinear));
-  EXPECT_EQ(color.r, 6);
-  EXPECT_EQ(color.g, 6);
+  EXPECT_EQ(color.r(), 6);
+  EXPECT_EQ(color.g(), 6);
 
   // Out of bounds
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(0.4, 0.4), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(0.4, 0.4), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(0.4, 0.6), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(0.4, 0.6), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(0.6, 0.4), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(0.6, 0.4), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(-0.6, 0.0), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(-0.6, 0.0), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(0.0, -0.6), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(0.0, -0.6), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(-0.6, -0.6), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(-0.6, -0.6), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(1.6, 0.0), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(1.6, 0.0), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(0.0, 1.6), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(0.0, 1.6), &color,
                                             InterpolationType::kLinear));
-  EXPECT_FALSE(interpolation::interpolate2D(image, Vector2f(1.6, 1.6), &color,
+  EXPECT_FALSE(interpolation::interpolate2D(view, Vector2f(1.6, 1.6), &color,
                                             InterpolationType::kLinear));
 }
 
@@ -217,25 +220,8 @@ TEST(ColorImageTest, InterpolationGPU) {
         static_cast<uint8_t>(std::round((u_px_vec[i].x() * 10.0f)));
     const uint8_t y =
         static_cast<uint8_t>(std::round((u_px_vec[i].y() * 10.0f)));
-    EXPECT_NEAR(values[i].g, x, kFloatEpsilon);
-    EXPECT_NEAR(values[i].r, y, kFloatEpsilon);
-  }
-}
-
-TEST(ColorImageTest, LoadedImageAlpha) {
-  // Load 3dmatch image
-  const std::string base_path = "./data/3dmatch";
-  constexpr int seq_id = 1;
-  ColorImage image(MemoryType::kUnified);
-  EXPECT_TRUE(datasets::load8BitColorImage(
-      datasets::threedmatch::internal::getPathForColorImage(base_path, seq_id,
-                                                            0),
-      &image));
-
-  for (int row_idx = 0; row_idx < image.rows(); row_idx++) {
-    for (int col_idx = 0; col_idx < image.rows(); col_idx++) {
-      CHECK_EQ(image(row_idx, col_idx).a, 255);
-    }
+    EXPECT_NEAR(values[i].g(), x, kFloatEpsilon);
+    EXPECT_NEAR(values[i].r(), y, kFloatEpsilon);
   }
 }
 

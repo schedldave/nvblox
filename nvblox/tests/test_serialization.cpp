@@ -82,8 +82,8 @@ TEST_F(SerializationTest, SerializeAndDeserializeTsdfLayer) {
 
   EXPECT_FALSE(cake2.empty());
   EXPECT_TRUE(cake2.exists<TsdfLayer>());
-  EXPECT_EQ(cake_.getPtr<TsdfLayer>()->numAllocatedBlocks(),
-            cake2.getPtr<TsdfLayer>()->numAllocatedBlocks());
+  EXPECT_EQ(cake_.getPtr<TsdfLayer>()->numBlocks(),
+            cake2.getPtr<TsdfLayer>()->numBlocks());
 
   // Compare the contents of all blocks in the TSDF layer.
   std::vector<Index3D> all_blocks =
@@ -187,7 +187,7 @@ TEST_F(SerializationTest, LayerBlockSerialization) {
 
   std::vector<Index3D> indices = getLayerDataIndices(tsdf_layer);
 
-  EXPECT_EQ(indices.size(), tsdf_layer.numAllocatedBlocks());
+  EXPECT_EQ(indices.size(), tsdf_layer.numBlocks());
 
   std::vector<Byte> block_byte_string =
       serializeLayerDataAtIndex(tsdf_layer, indices[0], CudaStreamOwning());
@@ -258,7 +258,7 @@ TEST_F(SerializationTest, OverwriteTest) {
 
   // Second save
   tsdf_layer.allocateBlockAtIndex(Index3D::Ones());
-  EXPECT_EQ(cake_.get<TsdfLayer>().numAllocatedBlocks(), 1);
+  EXPECT_EQ(cake_.get<TsdfLayer>().numBlocks(), 1);
   EXPECT_TRUE(io::writeLayerCakeToFile(filename, cake_));
 
   // Reload
@@ -266,7 +266,7 @@ TEST_F(SerializationTest, OverwriteTest) {
       io::loadLayerCakeFromFile(filename, MemoryType::kDevice);
 
   // Expect that there is only a single block in the saved map.
-  EXPECT_EQ(cake_reloaded.get<TsdfLayer>().numAllocatedBlocks(), 1);
+  EXPECT_EQ(cake_reloaded.get<TsdfLayer>().numBlocks(), 1);
 
   // Expect that the allocated block is the one allocated in the SECOND
   // allocation.

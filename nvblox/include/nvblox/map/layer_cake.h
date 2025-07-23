@@ -53,7 +53,7 @@ class LayerCake {
   /// @param memory_type The \ref MemoryType of the added layer.
   /// @return A pointer to the added layer.
   template <typename LayerType>
-  LayerType* add(MemoryType memory_type);
+  LayerType* add(BlockMemoryPoolParams block_memory_pool_params);
 
   /// Moves a layer into the layer cake, transferring ownership.
   /// @param type_index The type index of the added layer.
@@ -104,14 +104,11 @@ class LayerCake {
   /// Factory. Creates a LayerCake containing several layers
   /// @tparam ...LayerTypes A list of layer types to add to the cake.
   /// @param voxel_size The voxel size of the contained layers.
-  /// @param memory_type Memory type passed to contained layers.
+  /// @param block_memory_pool_params Parameters governing block allocation.
   /// @return A LayerCake containing the layers.
   template <typename... LayerTypes>
-  static LayerCake create(float voxel_size, MemoryType memory_type);
-  /// See \ref create
-  /// Additionally accepts a list of memory types. One per layer.
-  template <typename... LayerTypes, typename... MemoryTypes>
-  static LayerCake create(float voxel_size, MemoryTypes... memory_type);
+  static LayerCake create(float voxel_size,
+                          BlockMemoryPoolParams block_memory_pool_params);
 
   /// Retrieve all layers in the cake by reference.
   /// @return A map containing the layers.

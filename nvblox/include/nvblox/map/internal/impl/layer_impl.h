@@ -15,8 +15,6 @@ limitations under the License.
 */
 #pragma once
 
-#include "nvblox/utils/logging.h"
-
 #include "nvblox/core/indexing.h"
 #include "nvblox/core/types.h"
 #include "nvblox/map/accessors.h"
@@ -33,15 +31,14 @@ void BlockLayer<BlockType>::copyFrom(const BlockLayer& other) {
 template <typename BlockType>
 void BlockLayer<BlockType>::copyFromAsync(const BlockLayer& other,
                                           const CudaStream& cuda_stream) {
-  LOG(INFO) << "Deep copy of BlockLayer containing "
-            << other.numAllocatedBlocks() << " blocks.";
+  LOG(INFO) << "Deep copy of BlockLayer containing " << other.numBlocks()
+            << " blocks.";
+  clear();
 
-  blocks_.clear();
-
-  block_size_ = other.block_size_;
+  block_size_ = other.block_size();
 
   // Re-create all the blocks.
-  std::vector<Index3D> all_block_indices = other.getAllBlockIndices();
+  const std::vector<Index3D> all_block_indices = other.getAllBlockIndices();
 
   // Iterate over all blocks, clonin'.
   for (const Index3D& block_index : all_block_indices) {
@@ -57,6 +54,52 @@ void BlockLayer<BlockType>::copyFromAsync(const BlockLayer& other,
     gpu_layer_view_->insertBlockAsync(
         thrust::make_pair(block_index, new_block.get()), cuda_stream);
   }
+}
+
+/// Utility function to copy a MeshBlockLayer from one layer to another.
+/// Note that we pass the  BlockHash of the output layer instead of the layer
+/// itself because the hash is a private member of the layer.
+template <typename AppearanceType>
+inline void copyMeshBlocksAsync(
+    const BlockLayer<MeshBlock<AppearanceType>>& layer_in,
+    typename BlockLayer<MeshBlock<AppearanceType>>::BlockHash& block_hash_out,
+    MemoryType memory_type, const CudaStream& cuda_stream) {
+  LOG(INFO) << "Deep copy of Mesh BlockLayer containing "
+            << layer_in.numBlocks() << " blocks.";
+
+  // Re-create all the blocks.
+  const std::vector<Index3D> all_block_indices = layer_in.getAllBlockIndices();
+
+  // Iterate over all blocks, clonin'.
+  for (const Index3D& block_index : all_block_indices) {
+    typename MeshBlock<AppearanceType>::ConstPtr block =
+        layer_in.getBlockAtIndex(block_index);
+    if (block == nullptr) {
+      continue;
+    }
+    auto copy = std::make_shared<MeshBlock<AppearanceType>>(memory_type);
+    copy->copyFromAsync(*block, cuda_stream);
+    block_hash_out.emplace(block_index, copy);
+  }
+}
+
+/// Specialization of BlockLayer copyFromAsync just for ColorMeshBlocks
+/// Necessary since MeshBlock::Ptr is std::shared_ptr instead of unified_ptr
+template <>
+inline void BlockLayer<MeshBlock<Color>>::copyFromAsync(
+    const BlockLayer<MeshBlock<Color>>& other, const CudaStream& cuda_stream) {
+  clear();
+  copyMeshBlocksAsync(other, blocks_, memory_type(), cuda_stream);
+}
+
+/// Specialization of BlockLayer copyFromAsync just for FeatureMeshBlocks
+/// Necessary since MeshBlock::Ptr is std::shared_ptr instead of unified_ptr
+template <>
+inline void BlockLayer<MeshBlock<FeatureArray>>::copyFromAsync(
+    const BlockLayer<MeshBlock<FeatureArray>>& other,
+    const CudaStream& cuda_stream) {
+  clear();
+  copyMeshBlocksAsync(other, blocks_, memory_type(), cuda_stream);
 }
 
 // Block accessors by index.
@@ -251,6 +294,16 @@ BlockLayer<BlockType>::getGpuLayerView(const CudaStream& cuda_stream) const {
   return *gpu_layer_view_;
 }
 
+template <typename BlockType>
+size_t BlockLayer<BlockType>::numAllocatedBytes() {
+  return memory_pool_.numAllocatedBytes();
+}
+
+template <typename BlockType>
+size_t BlockLayer<BlockType>::numAllocatedBlocks() {
+  return memory_pool_.numAllocatedBlocks();
+}
+
 // VoxelBlockLayer
 
 template <typename VoxelType>
@@ -294,7 +347,7 @@ void VoxelBlockLayer<VoxelType>::getVoxels(
     const VoxelType* voxel_ptr =
         &block_raw_ptr->voxels[voxel_idx.x()][voxel_idx.y()][voxel_idx.z()];
     // Copy the Voxel to the CPU (if on the GPU)
-    if (this->memory_type_ == MemoryType::kDevice) {
+    if (this->memory_type() == MemoryType::kDevice) {
       checkCudaErrors(cudaMemcpyAsync(&(*voxels_ptr)[i], voxel_ptr,
                                       sizeof(VoxelType), cudaMemcpyDefault,
                                       *cuda_stream_ptr));

@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include <gtest/gtest.h>
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/core/internal/warmup_cuda.h"
 #include "nvblox/rays/ray_caster.h"

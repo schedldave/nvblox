@@ -20,7 +20,6 @@ limitations under the License.
 #include <memory>
 #include <type_traits>
 #include "nvblox/core/cuda_stream.h"
-#include "nvblox/utils/logging.h"
 
 #include "nvblox/core/types.h"
 

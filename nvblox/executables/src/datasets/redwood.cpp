@@ -15,8 +15,6 @@ limitations under the License.
 */
 #include "nvblox/datasets/redwood.h"
 
-#include "nvblox/utils/logging.h"
-
 #include <filesystem>
 #include <fstream>
 #include <functional>

@@ -28,10 +28,11 @@ limitations under the License.
 namespace nvblox {
 
 /// Container for storing a serialized mesh
+template <typename AppearanceType>
 struct SerializedMeshLayer {
   /// Serialized mesh components
   host_vector<Vector3f> vertices;
-  host_vector<Color> colors;
+  host_vector<AppearanceType> vertex_appearances;
   host_vector<int> triangle_indices;
 
   /// Offsets for each mesh block in the output vector.
@@ -59,10 +60,11 @@ struct SerializedMeshLayer {
     return vertices[vertex_block_offsets[block_index] + vertex_index];
   }
 
-  /// Get a Color given a block index and a vertex index inside the block
-  const Color& getColor(size_t block_index, size_t vertex_index) const {
+  /// Get a appearance given a block index and a vertex index inside the block
+  const AppearanceType& getAppearance(size_t block_index,
+                                      size_t vertex_index) const {
     CHECK(block_index < vertex_block_offsets.size() - 1);
-    return colors[vertex_block_offsets[block_index] + vertex_index];
+    return vertex_appearances[vertex_block_offsets[block_index] + vertex_index];
   }
 
   /// Get a Triangle index given a block index and a triangle index inside the
@@ -88,15 +90,21 @@ struct SerializedMeshLayer {
   }
 };
 
+using SerializedColorMeshLayer = SerializedMeshLayer<Color>;
+using SerializedFeatureMeshLayer = SerializedMeshLayer<FeatureArray>;
+
 /// Class for serialization
 ///
 /// Mesh needs special treatment since the data int he blocks are stored
 /// as struct-of-arrays rather than array-of-structs
+template <typename AppearanceType>
 class MeshSerializerGpu {
  public:
   MeshSerializerGpu();
   virtual ~MeshSerializerGpu() = default;
-  using SerializedLayerType = SerializedMeshLayer;
+  using MeshBlockType = MeshBlock<AppearanceType>;
+  using SerializedLayerType = SerializedMeshLayer<AppearanceType>;
+  using MeshLayerType = MeshBlockLayer<AppearanceType>;
 
   /// Serialize a mesh layer
   ///
@@ -109,22 +117,26 @@ class MeshSerializerGpu {
   /// @param mesh_layer                  Mesh layer to serialize
   /// @param block_indices_to_serialize  Requested block indices
   /// @param cuda_stream                 Cuda stream
-  std::shared_ptr<const SerializedMeshLayer> serialize(
-      const MeshLayer& mesh_layer,
+  std::shared_ptr<SerializedLayerType> serialize(
+      const MeshLayerType& mesh_layer,
       const std::vector<Index3D>& block_indices_to_serialize,
       const CudaStream& cuda_stream);
 
   /// Get the serialized mesh
-  std::shared_ptr<const SerializedMeshLayer> getSerializedLayer() const {
+  std::shared_ptr<SerializedLayerType> getSerializedLayer() const {
     return serialized_mesh_;
   }
 
  private:
-  LayerSerializerGpuInternal<MeshLayer, Vector3f> vertex_serializer_;
-  LayerSerializerGpuInternal<MeshLayer, Color> color_serializer_;
-  LayerSerializerGpuInternal<MeshLayer, int> triangle_index_serializer_;
+  LayerSerializerGpuInternal<MeshLayerType, Vector3f> vertex_serializer_;
+  LayerSerializerGpuInternal<MeshLayerType, AppearanceType>
+      appearance_serializer_;
+  LayerSerializerGpuInternal<MeshLayerType, int> triangle_index_serializer_;
 
-  std::shared_ptr<SerializedMeshLayer> serialized_mesh_;
+  std::shared_ptr<SerializedLayerType> serialized_mesh_;
 };
+
+using ColorMeshSerializerGpu = MeshSerializerGpu<Color>;
+using FeatureMeshSerializerGpu = MeshSerializerGpu<FeatureArray>;
 
 }  // namespace nvblox

@@ -81,7 +81,7 @@ __device__ inline void voxelAndBlockIndexFromCudaThreadIndex(
 /// @return True if the voxel is in view.
 __device__ inline bool doesVoxelHaveDepthMeasurement(
     const Index3D& block_idx, const Index3D& voxel_idx, const Camera camera,
-    const float* depth_image, int rows, int cols, const Transform T_C_L,
+    const DepthImageConstView depth_image, const Transform T_C_L,
     const float block_size, const float max_integration_distance,
     const float truncation_distance_m);
 

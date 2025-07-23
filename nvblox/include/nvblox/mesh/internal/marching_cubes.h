@@ -75,9 +75,10 @@ __host__ __device__ Vector3f interpolateVertex(const Vector3f& vertex1,
                                                float sdf1, float sdf2);
 
 // Actually populate the mesh block.
+template <typename AppearanceType>
 __host__ void meshCube(
     const PerVoxelMarchingCubesResults& marching_cubes_results,
-    MeshBlock* mesh);
+    MeshBlock<AppearanceType>* mesh);
 
 }  // namespace marching_cubes
 }  // namespace nvblox

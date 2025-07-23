@@ -1,6 +1,6 @@
 [component_container_mt-2] [WARN] [1716384276.668905579] [visual_slam_node]: Delta between current and previous frame [66.825472 ms] is above threshold [34.000000 ms]
-[component_container_mt-2] [INFO] [1716384282.429080457] [nvblox_node]: Timing statistics: 
-[component_container_mt-2] 
+[component_container_mt-2] [INFO] [1716384282.429080457] [nvblox_node]: Timing statistics:
+[component_container_mt-2]
 [component_container_mt-2] NVBlox Timings (in seconds)
 [component_container_mt-2] namespace/tag - NumSamples - TotalTime - (Mean +- StdDev) - [Min,Max]
 [component_container_mt-2] -----------
@@ -28,11 +28,11 @@
 [component_container_mt-2] view_calculator/raycast/raycast_pixels_kernel                 	   1162	00.031553	(00.000027 +- 00.000011)	[00.000013,00.001187]
 [component_container_mt-2] view_calculator/raycast/setup                                 	   1162	00.014702	(00.000013 +- 00.000004)	[00.000004,00.000228]
 [component_container_mt-2] -----------
-[component_container_mt-2] 
-[component_container_mt-2] [INFO] [1716384282.429736344] [nvblox_node]: Rates statistics: 
-[component_container_mt-2] 
+[component_container_mt-2]
+[component_container_mt-2] [INFO] [1716384282.429736344] [nvblox_node]: Rates statistics:
+[component_container_mt-2]
 [component_container_mt-2] NVBlox Rates (in Hz)
-[component_container_mt-2] namespace/tag - NumSamples (Window Length) - Mean 
+[component_container_mt-2] namespace/tag - NumSamples (Window Length) - Mean
 [component_container_mt-2] -----------
 [component_container_mt-2] ros/color               	95     	5.0
 [component_container_mt-2] ros/depth               	100    	29.9
@@ -42,11 +42,11 @@
 [component_container_mt-2] mapper/stream_mesh      	90     	4.7
 [component_container_mt-2] ros/tick                	100    	100.1
 [component_container_mt-2] -----------
-[component_container_mt-2] 
-[component_container_mt-2] [INFO] [1716384282.429775033] [nvblox_node]: Delay statistics: 
-[component_container_mt-2] 
+[component_container_mt-2]
+[component_container_mt-2] [INFO] [1716384282.429775033] [nvblox_node]: Delay statistics:
+[component_container_mt-2]
 [component_container_mt-2] NVBlox Delays
-[component_container_mt-2] namespace/tag - NumSamples (Window Length) - Mean Delay (seconds) 
+[component_container_mt-2] namespace/tag - NumSamples (Window Length) - Mean Delay (seconds)
 [component_container_mt-2] -----------
 [component_container_mt-2] ros/esdf_integration       	100    	0.046
 [component_container_mt-2] ros/color_image_integration	95     	0.061
@@ -54,16 +54,16 @@
 [component_container_mt-2] ros/color_image_callback   	100    	0.051
 [component_container_mt-2] ros/depth_image_callback   	100    	0.000
 [component_container_mt-2] -----------
-[component_container_mt-2] 
-[component_container_mt-2] [INFO] [1716384282.498836328] [nvblox_node]: Depth Statistics: 
+[component_container_mt-2]
+[component_container_mt-2] [INFO] [1716384282.498836328] [nvblox_node]: Depth Statistics:
 [component_container_mt-2] avg=33.599099, min=0.000000, max=74.999464, std_dev=12.224970, count=596
 [INFO] [ros2-1]: process has finished cleanly [pid 27967]
 [INFO] [launch]: process[ros2-1] was required: shutting down launched system
 [INFO] [component_container_mt-2]: sending signal 'SIGINT' to process[component_container_mt-2]
 [component_container_mt-2] [INFO] [1716384282.866420188] [rclcpp]: signal_handler(signum=2)
 [component_container_mt-2] [INFO] [1716384282.888055340] [visual_slam_node]: cuVSLAM tracker was destroyed
-[component_container_mt-2] [INFO] [1716384282.901084214] [nvblox_node]: Timing statistics: 
-[component_container_mt-2] 
+[component_container_mt-2] [INFO] [1716384282.901084214] [nvblox_node]: Timing statistics:
+[component_container_mt-2]
 [component_container_mt-2] NVBlox Timings (in seconds)
 [component_container_mt-2] namespace/tag - NumSamples - TotalTime - (Mean +- StdDev) - [Min,Max]
 [component_container_mt-2] -----------
@@ -142,9 +142,9 @@
 [component_container_mt-2] view_calculator/raycast/raycast_pixels_kernel                 	   1176	00.031851	(00.000027 +- 00.000011)	[00.000013,00.001187]
 [component_container_mt-2] view_calculator/raycast/setup                                 	   1176	00.014895	(00.000013 +- 00.000004)	[00.000004,00.000228]
 [component_container_mt-2] -----------
-[component_container_mt-2] 
-[component_container_mt-2] [INFO] [1716384282.901150192] [nvblox_node]: Rates statistics: 
-[component_container_mt-2] 
+[component_container_mt-2]
+[component_container_mt-2] [INFO] [1716384282.901150192] [nvblox_node]: Rates statistics:
+[component_container_mt-2]
 [component_container_mt-2] NVBlox Rates (in Hz)
 [component_container_mt-2] namespace/tag - NumSamples (Window Length) - Mean namespace/tag - NumSamples (Window Length) - Mean
 [component_container_mt-2] -----------
@@ -156,11 +156,11 @@
 [component_container_mt-2] mapper/stream_mesh      	92     	4.7
 [component_container_mt-2] ros/tick                	100    	100.0
 [component_container_mt-2] -----------
-[component_container_mt-2] 
-[component_container_mt-2] [INFO] [1716384282.901160665] [nvblox_node]: Delay statistics: 
-[component_container_mt-2] 
+[component_container_mt-2]
+[component_container_mt-2] [INFO] [1716384282.901160665] [nvblox_node]: Delay statistics:
+[component_container_mt-2]
 [component_container_mt-2] NVBlox Delays
-[component_container_mt-2] namespace/tag - NumSamples (Window Length) - Mean Delay (seconds) 
+[component_container_mt-2] namespace/tag - NumSamples (Window Length) - Mean Delay (seconds)
 [component_container_mt-2] -----------
 [component_container_mt-2] ros/esdf_integration       	100    	0.046
 [component_container_mt-2] ros/color_image_integration	97     	0.061
@@ -168,7 +168,7 @@
 [component_container_mt-2] ros/color_image_callback   	100    	0.051
 [component_container_mt-2] ros/depth_image_callback   	100    	0.000
 [component_container_mt-2] -----------
-[component_container_mt-2] 
+[component_container_mt-2]
 [component_container_mt-2] [WARNING] Delta between frame is 166 ms that is longer than desired 34 ms. Check camera fps and sync settings.
 [component_container_mt-2] [WARNING] Delta between frame is 66 ms that is longer than desired 34 ms. Check camera fps and sync settings.
 [component_container_mt-2] [WARNING] Delta between frame is 67 ms that is longer than desired 34 ms. Check camera fps and sync settings.

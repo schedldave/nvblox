@@ -98,9 +98,9 @@ __global__ void projectBlocksToCamera(
   result_ptr->row(thread_index_linear) = u_px;
 }
 
-__global__ void interpolate(const float* depth_frame,
-                            const float* u_px_vec_device_ptr, const int rows,
-                            const int cols, const int num_points,
+__global__ void interpolate(const DepthImageConstView depth_frame,
+                            const float* u_px_vec_device_ptr,
+                            const int num_points,
                             float* interpolated_value_device_ptr) {
   // Map the interpolation locations
   const Eigen::Map<const Eigen::MatrixX2f> u_px_vec(u_px_vec_device_ptr,
@@ -109,7 +109,7 @@ __global__ void interpolate(const float* depth_frame,
   const int u_px_vec_idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (u_px_vec_idx < num_points) {
     interpolation::interpolate2DLinear(
-        depth_frame, u_px_vec.row(u_px_vec_idx), rows, cols,
+        depth_frame, u_px_vec.row(u_px_vec_idx),
         &interpolated_value_device_ptr[u_px_vec_idx]);
   }
 }
@@ -175,8 +175,9 @@ Eigen::VectorXf interpolatePointsOnGPU(const DepthImage& depth_frame,
   constexpr int threadsPerBlock = 512;
   const int blocksInGrid = (num_points / threadsPerBlock) + 1;
   interpolate<<<blocksInGrid, threadsPerBlock>>>(
-      depth_frame_device_ptr, u_px_vec_device_ptr, depth_frame.rows(),
-      depth_frame.cols(), u_px_vec.rows(), interpolated_values_device_ptr);
+      DepthImageConstView(depth_frame.rows(), depth_frame.cols(),
+                          depth_frame_device_ptr),
+      u_px_vec_device_ptr, u_px_vec.rows(), interpolated_values_device_ptr);
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaDeviceSynchronize());
 

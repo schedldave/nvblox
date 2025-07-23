@@ -206,7 +206,7 @@ TEST_F(ZeroCrossingsFromAboveSimpleSphere, CPUTest) {
 
   Mapper mapper(voxel_size_m, MemoryType::kHost);
   mapper.tsdf_layer().copyFrom(tsdf_layer_host);
-  mapper.updateMesh(UpdateFullLayer::kYes);
+  mapper.updateColorMesh(UpdateFullLayer::kYes);
 
   TsdfZeroCrossingsExtractorCPU tsdf_zero_crossings_extractor_cpu;
   EXPECT_TRUE(
@@ -231,7 +231,7 @@ TEST_F(ZeroCrossingsFromAboveSimpleSphere, GPUTest) {
 
   Mapper mapper(voxel_size_m, MemoryType::kHost);
   mapper.tsdf_layer().copyFrom(tsdf_layer_host);
-  mapper.updateMesh(UpdateFullLayer::kYes);
+  mapper.updateColorMesh(UpdateFullLayer::kYes);
 
   TsdfZeroCrossingsExtractor tsdf_zero_crossings_extractor(
       std::make_shared<CudaStreamOwning>());
@@ -261,7 +261,7 @@ TEST_F(ZeroCrossingsFromAboveSimpleSphere, GPUTestMaxCrossingsExceeded) {
 
   Mapper mapper(voxel_size_m, MemoryType::kHost);
   mapper.tsdf_layer().copyFrom(tsdf_layer_host);
-  mapper.updateMesh(UpdateFullLayer::kYes);
+  mapper.updateColorMesh(UpdateFullLayer::kYes);
 
   TsdfZeroCrossingsExtractor tsdf_zero_crossings_extractor(
       std::make_shared<CudaStreamOwning>());
@@ -291,7 +291,7 @@ TEST_F(ZeroCrossingsFromAboveEmptyScene, GPUTest) {
 
   Mapper mapper(voxel_size_m, MemoryType::kHost);
   mapper.tsdf_layer().copyFrom(tsdf_layer_host);
-  mapper.updateMesh(UpdateFullLayer::kYes);
+  mapper.updateColorMesh(UpdateFullLayer::kYes);
 
   TsdfZeroCrossingsExtractor tsdf_zero_crossings_extractor(
       std::make_shared<CudaStreamOwning>());
@@ -314,7 +314,7 @@ TEST_F(ZeroCrossingsFromAboveEmptyScene, CPUTest) {
 
   Mapper mapper(voxel_size_m, MemoryType::kHost);
   mapper.tsdf_layer().copyFrom(tsdf_layer_host);
-  mapper.updateMesh(UpdateFullLayer::kYes);
+  mapper.updateColorMesh(UpdateFullLayer::kYes);
 
   TsdfZeroCrossingsExtractorCPU tsdf_zero_crossings_extractor_cpu;
   EXPECT_TRUE(

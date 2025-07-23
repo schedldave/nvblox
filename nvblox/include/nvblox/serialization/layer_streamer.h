@@ -99,9 +99,9 @@ class LayerStreamerBase : public LayerStreamerInterface {
   /// @param layer layer to serialize
   /// @param cuda_stream Cuda stream.
   /// @return Serialized containing highest priority blocks
-  std::shared_ptr<const SerializedLayerType<LayerType>>
-  getNBytesOfSerializedBlocks(const size_t num_bytes, const LayerType& layer,
-                              const CudaStream& cuda_stream);
+  std::shared_ptr<SerializedLayerType<LayerType>> getNBytesOfSerializedBlocks(
+      const size_t num_bytes, const LayerType& layer,
+      const CudaStream& cuda_stream);
 
   /// @brief Serialize all requested blocks, disregarding bandwidth and
   /// exclusion.
@@ -109,12 +109,12 @@ class LayerStreamerBase : public LayerStreamerInterface {
   /// @param layer layer to serialize
   /// @param block_indices block indices to serialize
   /// @param cuda_stream Cuda stream for GPU work
-  std::shared_ptr<const SerializedLayerType<LayerType>> serializeAllBlocks(
+  std::shared_ptr<SerializedLayerType<LayerType>> serializeAllBlocks(
       const LayerType& layer, const std::vector<Index3D>& block_indices,
       const CudaStream& cuda_stream);
 
   /// @brief Get the serialized result from the last computation
-  std::shared_ptr<const SerializedLayerType<LayerType>> getSerializedLayer();
+  std::shared_ptr<SerializedLayerType<LayerType>> getSerializedLayer();
 
   /// @brief Returns the number of indices that are currently candidates
   /// for streaming.
@@ -209,8 +209,7 @@ class LayerStreamerOldestBlocks : public LayerStreamerBase<_LayerType> {
   /// @param exclusion_center_m Center point for radial exclusion
   /// @param cuda_stream Cuda stream.
   /// @return Serialized containing highest priority blocks
-  std::shared_ptr<const SerializedLayerType<LayerType>>
-  getNBytesOfSerializedBlocks(
+  std::shared_ptr<SerializedLayerType<LayerType>> getNBytesOfSerializedBlocks(
       const size_t num_bytes, const LayerType& layer,
       const BlockExclusionParams& block_exclusion_params,
       const CudaStream& cuda_stream);
@@ -225,8 +224,7 @@ class LayerStreamerOldestBlocks : public LayerStreamerBase<_LayerType> {
   /// @param bandwidth_limit_mbps Largest accepted bandwidth
   /// @param cuda_stream Cuda stream
   /// @return The serialized layer
-  std::shared_ptr<const SerializedLayerType<LayerType>>
-  estimateBandwidthAndSerialize(
+  std::shared_ptr<SerializedLayerType<LayerType>> estimateBandwidthAndSerialize(
       const LayerType& layer, const std::vector<Index3D>& blocks_to_serialize,
       const std::string& layer_name,
       const BlockExclusionParams& block_exclusion_params,
@@ -265,7 +263,10 @@ class LayerStreamerOldestBlocks : public LayerStreamerBase<_LayerType> {
 
 constexpr float kLayerStreamerUnlimitedBandwidth = -1.0F;
 
-using MeshLayerStreamerOldestBlocks = LayerStreamerOldestBlocks<MeshLayer>;
+using ColorMeshLayerStreamerOldestBlocks =
+    LayerStreamerOldestBlocks<ColorMeshLayer>;
+using FeatureMeshLayerStreamerOldestBlocks =
+    LayerStreamerOldestBlocks<FeatureMeshLayer>;
 using TsdfLayerStreamerOldestBlocks = LayerStreamerOldestBlocks<TsdfLayer>;
 using EsdfLayerStreamerOldestBlocks = LayerStreamerOldestBlocks<EsdfLayer>;
 using OccupancyLayerStreamerOldestBlocks =
@@ -273,6 +274,8 @@ using OccupancyLayerStreamerOldestBlocks =
 using FreespaceLayerStreamerOldestBlocks =
     LayerStreamerOldestBlocks<FreespaceLayer>;
 using ColorLayerStreamerOldestBlocks = LayerStreamerOldestBlocks<ColorLayer>;
+using FeatureLayerStreamerOldestBlocks =
+    LayerStreamerOldestBlocks<FeatureLayer>;
 
 }  // namespace nvblox
 #include "nvblox/serialization/internal/impl/layer_streamer_impl.h"

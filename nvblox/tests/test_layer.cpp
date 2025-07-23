@@ -268,17 +268,17 @@ TEST(LayerTest, MoveOperations) {
   constexpr float voxel_size_m = 1.0;
 
   // BlockLayer (MeshLayer being the representative)
-  MeshLayer mesh_layer_1(voxel_size_m, MemoryType::kDevice);
+  ColorMeshLayer mesh_layer_1(voxel_size_m, MemoryType::kDevice);
   mesh_layer_1.allocateBlockAtIndex(Index3D(0, 0, 0));
 
   EXPECT_TRUE(mesh_layer_1.isBlockAllocated(Index3D(0, 0, 0)));
 
-  MeshLayer mesh_layer_2 = std::move(mesh_layer_1);
+  ColorMeshLayer mesh_layer_2 = std::move(mesh_layer_1);
 
   EXPECT_FALSE(mesh_layer_1.isBlockAllocated(Index3D(0, 0, 0)));
   EXPECT_TRUE(mesh_layer_2.isBlockAllocated(Index3D(0, 0, 0)));
 
-  MeshLayer mesh_layer_3(std::move(mesh_layer_2));
+  ColorMeshLayer mesh_layer_3(std::move(mesh_layer_2));
 
   EXPECT_FALSE(mesh_layer_2.isBlockAllocated(Index3D(0, 0, 0)));
   EXPECT_TRUE(mesh_layer_3.isBlockAllocated(Index3D(0, 0, 0)));
@@ -324,7 +324,7 @@ TEST(VoxelLayerTest, allocateAndDeallocateManyBlocks) {
     block_indices[i] = Index3D(i, 0, 0);
   }
 
-  MeshLayer layer(0.1F, MemoryType::kDevice);
+  ColorMeshLayer layer(0.1F, MemoryType::kDevice);
   for (size_t i = 0; i < 100; ++i) {
     layer.allocateBlocksAtIndices(block_indices, CudaStreamOwning());
     layer.clearBlocks(block_indices);
@@ -393,24 +393,24 @@ TEST(VoxelLayerTest, ClearBlocks) {
   tsdf_layer.allocateBlockAtIndex(Index3D(0, 0, 1));
   tsdf_layer.allocateBlockAtIndex(Index3D(0, 0, 2));
   tsdf_layer.allocateBlockAtIndex(Index3D(0, 0, 3));
-  EXPECT_EQ(tsdf_layer.numAllocatedBlocks(), 4);
+  EXPECT_EQ(tsdf_layer.numBlocks(), 4);
 
   // Fail to clear non-allocated block
   tsdf_layer.clearBlocks({Index3D(0, 0, 4)});
-  EXPECT_EQ(tsdf_layer.numAllocatedBlocks(), 4);
+  EXPECT_EQ(tsdf_layer.numBlocks(), 4);
 
   // Clear 1 block
   tsdf_layer.clearBlocks({Index3D(0, 0, 0)});
-  EXPECT_EQ(tsdf_layer.numAllocatedBlocks(), 3);
+  EXPECT_EQ(tsdf_layer.numBlocks(), 3);
 
   // Clear 1 more block + 1 non-existant block
   tsdf_layer.clearBlocks({Index3D(0, 0, 1), Index3D(0, 0, 4)});
-  EXPECT_EQ(tsdf_layer.numAllocatedBlocks(), 2);
+  EXPECT_EQ(tsdf_layer.numBlocks(), 2);
 
   // Clear the rest
   tsdf_layer.clearBlocks(
       {Index3D(0, 0, 2), Index3D(0, 0, 3), Index3D(0, 0, 4)});
-  EXPECT_EQ(tsdf_layer.numAllocatedBlocks(), 0);
+  EXPECT_EQ(tsdf_layer.numBlocks(), 0);
 }
 
 TEST(VoxelLayerTest, AllocateMultipleBlocks) {
@@ -432,10 +432,11 @@ TEST(VoxelLayerTest, AllocateMultipleBlocks) {
 TEST(LayerTest, IsLayerTrait) {
   // NOTE(alexmillane): For some reason be have to assign to an intermediate
   // value for EXPECT_TRUE
-  bool test_true = traits::are_layers<TsdfLayer, EsdfLayer, MeshLayer>::value;
+  bool test_true =
+      traits::are_layers<TsdfLayer, EsdfLayer, ColorMeshLayer>::value;
   EXPECT_TRUE(test_true);
-  bool test_false =
-      traits::are_layers<TsdfLayer, EsdfLayer, MeshLayer, std::string>::value;
+  bool test_false = traits::are_layers<TsdfLayer, EsdfLayer, ColorMeshLayer,
+                                       std::string>::value;
   EXPECT_FALSE(test_false);
 }
 
@@ -485,6 +486,13 @@ TEST_F(LayerTestFixture, GpuCpuHashEquivalence_clearOneBlock) {
 TEST_F(LayerTestFixture, GpuCpuHashEquivalence_clearAllBlocks) {
   tsdf_layer_.clearBlocks(tsdf_layer_.getAllBlockIndices());
   test_utils::checkGpuAndCpuHashesEqual(tsdf_layer_);
+}
+
+TEST_F(LayerTestFixture, numAllocatedBytes) {
+  // Note that num allocated blocks is typically larger than the actual number
+  // of blocks, since the memory pool allocates blocks in chunks.
+  EXPECT_GE(tsdf_layer_.numAllocatedBytes(),
+            sizeof(TsdfBlock) * tsdf_layer_.numBlocks());
 }
 
 int main(int argc, char** argv) {

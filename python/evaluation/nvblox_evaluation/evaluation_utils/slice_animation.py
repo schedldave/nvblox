@@ -16,7 +16,8 @@
 
 import numpy as np
 import open3d as o3d
-from moviepy.editor import ImageSequenceClip
+from typing import List
+from moviepy import ImageSequenceClip
 
 from nvblox_common.voxel_grid import VoxelGrid
 
@@ -24,23 +25,25 @@ from nvblox_common.voxel_grid import VoxelGrid
 def get_z_slice_animation_clip(
         voxel_grid: VoxelGrid,
         mesh: o3d.geometry.TriangleMesh = None,
-        viewpoint: o3d.camera.PinholeCameraParameters = None
-) -> ImageSequenceClip:
+        viewpoint: o3d.camera.PinholeCameraParameters = None) -> ImageSequenceClip:
     """
-    Create a image sequence containing horizontal slices moving through the z dimension of the VoxelGrid.
+    Create a image sequence containing horizontal slices moving through the z dimension of
+    the VoxelGrid.
 
     Args:
     ----
     voxel_grid: Input voxel grid
-    mesh (o3d.geometry.TriangleMesh, optional): Additional mesh to add to the animation. Defaults to None.
-    viewpoint (o3d.camera.PinholeCameraParameters, optional): Viewpoint to record the slice from. Defaults to None.
+    mesh (o3d.geometry.TriangleMesh, optional): Additional mesh to add to the animation.
+    Defaults to None.
+    viewpoint (o3d.camera.PinholeCameraParameters, optional): Viewpoint to record the
+    slice from. Defaults to None.
 
     Return:
     ------
     ImageSequenceClip: sequence of images of the slicing results
 
     """
-    images = []
+    images: List[np.ndarray] = []
     vis = o3d.visualization.Visualizer()
     vis.create_window()
     if viewpoint is not None:
@@ -50,13 +53,10 @@ def get_z_slice_animation_clip(
         vis.add_geometry(mesh)
     slice_mesh = o3d.geometry.TriangleMesh()
     vis.add_geometry(slice_mesh)
-    images = []
     first = True
     for z_idx in range(voxel_grid.shape()[2]):
         vis.remove_geometry(slice_mesh, reset_bounding_box=False)
-        slice_mesh = voxel_grid.get_slice_mesh_at_index(z_idx,
-                                                        axis='z',
-                                                        cube_size=1.0)
+        slice_mesh = voxel_grid.get_slice_mesh_at_index(z_idx, axis='z', cube_size=1.0)
         if first and mesh is None:
             vis.add_geometry(slice_mesh, reset_bounding_box=True)
             first = False

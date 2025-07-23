@@ -20,18 +20,19 @@ limitations under the License.
 namespace nvblox {
 
 template <typename LayerType>
-LayerType* LayerCake::add(MemoryType memory_type) {
+LayerType* LayerCake::add(BlockMemoryPoolParams block_memory_pool_params) {
   if (layers_.count(typeid(LayerType)) == 0) {
     // Allocate
     CHECK_GT(voxel_size_, 0.0f);
     auto layer_ptr = std::make_unique<LayerType>(
-        sizeArgumentFromVoxelSize<LayerType>(voxel_size_), memory_type);
+        sizeArgumentFromVoxelSize<LayerType>(voxel_size_),
+        block_memory_pool_params);
     LayerType* return_ptr = layer_ptr.get();
     // Store (as BaseLayer ptr)
     layers_.emplace(std::type_index(typeid(LayerType)), std::move(layer_ptr));
     LOG(INFO) << "Adding Layer with type: " << typeid(LayerType).name()
-              << ", voxel_size: " << voxel_size_
-              << ", and memory_type: " << toString(memory_type)
+              << ", voxel_size: " << voxel_size_ << ", and memory_type: "
+              << toString(block_memory_pool_params.memory_type.get())
               << " to LayerCake.";
     return return_ptr;
   } else {
@@ -118,23 +119,13 @@ bool LayerCake::exists() const {
 }
 
 template <typename... LayerTypes>
-LayerCake LayerCake::create(float voxel_size, MemoryType memory_type) {
+LayerCake LayerCake::create(float voxel_size,
+                            BlockMemoryPoolParams block_memory_pool_params) {
   static_assert(unique_types<LayerTypes...>::value,
                 "At the moment we only support LayerCakes containing unique "
                 "LayerTypes.");
   LayerCake cake(voxel_size);
-  BaseLayer* ignored[] = {cake.add<LayerTypes>(memory_type)...};
-  static_cast<void>(ignored);
-  return cake;
-}
-
-template <typename... LayerTypes, typename... MemoryTypes>
-LayerCake LayerCake::create(float voxel_size, MemoryTypes... memory_types) {
-  static_assert(unique_types<LayerTypes...>::value,
-                "At the moment we only support LayerCakes containing unique "
-                "LayerTypes.");
-  LayerCake cake(voxel_size);
-  BaseLayer* ignored[] = {cake.add<LayerTypes>(memory_types)...};
+  BaseLayer* ignored[] = {cake.add<LayerTypes>(block_memory_pool_params)...};
   static_cast<void>(ignored);
   return cake;
 }

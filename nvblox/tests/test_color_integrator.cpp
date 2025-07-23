@@ -16,7 +16,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 
 #include "nvblox/geometry/bounding_boxes.h"
-#include "nvblox/integrators/projective_color_integrator.h"
+#include "nvblox/integrators/projective_appearance_integrator.h"
 #include "nvblox/integrators/projective_tsdf_integrator.h"
 #include "nvblox/interpolation/interpolation_3d.h"
 #include "nvblox/io/mesh_io.h"
@@ -92,8 +92,8 @@ class TestProjectiveColorIntegratorGPU : public ProjectiveColorIntegrator {
 };
 
 bool colorsEqualIgnoreAlpha(const Color& color_1, const Color& color_2) {
-  return (color_1.r == color_2.r) && (color_1.g == color_2.g) &&
-         (color_1.b == color_2.b);
+  return (color_1.r() == color_2.r()) && (color_1.g() == color_2.g()) &&
+         (color_1.b() == color_2.b());
 }
 
 ColorImage generateSolidColorImage(const Color& color, const int height,
@@ -136,7 +136,7 @@ float checkSphereColor(const ColorLayer& color_layer, const Vector3f& center,
     ++num_tested;
     constexpr float kMinVoxelWeight = 1e-3;
     if (voxel.weight >= kMinVoxelWeight) {
-      EXPECT_TRUE(colorsEqualIgnoreAlpha(voxel.color, color_2));
+      EXPECT_EQ(voxel.color, color_2);
       ++num_observed;
     }
   };
@@ -261,8 +261,9 @@ TEST_F(ColorIntegrationTest, IntegrateColorToGroundTruthDistanceField) {
 
     // Generate an image with a single color
     std::vector<Index3D> updated_blocks;
-    color_integrator.integrateFrame(image, T_S_C, camera_, gt_layer_,
-                                    &color_layer, &updated_blocks);
+    color_integrator.integrateFrame(
+        MaskedColorImageConstView(image, kMaskActiveEverywhere), T_S_C, camera_,
+        gt_layer_, &color_layer, &updated_blocks);
     // Accumulate touched block indices
     std::copy(updated_blocks.begin(), updated_blocks.end(),
               std::inserter(touched_blocks, touched_blocks.end()));
@@ -277,7 +278,7 @@ TEST_F(ColorIntegrationTest, IntegrateColorToGroundTruthDistanceField) {
   auto color_check_lambda = [&color](const Index3D&,
                                      const ColorVoxel* voxel) -> void {
     if (voxel->weight > 0.0f) {
-      EXPECT_TRUE(colorsEqualIgnoreAlpha(voxel->color, color));
+      EXPECT_EQ(voxel->color, color);
     }
   };
 
@@ -317,15 +318,15 @@ TEST_F(ColorIntegrationTest, IntegrateColorToGroundTruthDistanceField) {
   }
 
   // Generate a mesh from the "reconstruction"
-  MeshIntegrator mesh_integrator;
-  BlockLayer<MeshBlock> mesh_layer(block_size_m_, MemoryType::kDevice);
+  ColorMeshIntegrator mesh_integrator;
+  ColorMeshLayer mesh_layer(block_size_m_, MemoryType::kDevice);
   EXPECT_TRUE(
       mesh_integrator.integrateMeshFromDistanceField(gt_layer_, &mesh_layer));
-  mesh_integrator.colorMesh(color_layer, &mesh_layer);
+  mesh_integrator.updateAppearance(color_layer, &mesh_layer);
 
   // Write to file
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(mesh_layer, "color_sphere_mesh.ply");
+    io::outputColorMeshLayerToPly(mesh_layer, "color_sphere_mesh.ply");
   }
 }
 
@@ -394,19 +395,22 @@ TEST_F(ColorIntegrationTest, ColoredSpheres) {
   const auto image_3 = generateSolidColorImage(color_3, height_, width_);
 
   std::vector<Index3D> updated_blocks;
-  color_integrator.integrateFrame(image_1, T_S_C1, camera, gt_layer_,
-                                  &color_layer, &updated_blocks);
-  color_integrator.integrateFrame(image_2, T_S_C2, camera, gt_layer_,
-                                  &color_layer, &updated_blocks);
-  color_integrator.integrateFrame(image_3, T_S_C3, camera, gt_layer_,
-                                  &color_layer, &updated_blocks);
+  color_integrator.integrateFrame(
+      MaskedColorImageConstView(image_1, kMaskActiveEverywhere), T_S_C1, camera,
+      gt_layer_, &color_layer, &updated_blocks);
+  color_integrator.integrateFrame(
+      MaskedColorImageConstView(image_2, kMaskActiveEverywhere), T_S_C2, camera,
+      gt_layer_, &color_layer, &updated_blocks);
+  color_integrator.integrateFrame(
+      MaskedColorImageConstView(image_3, kMaskActiveEverywhere), T_S_C3, camera,
+      gt_layer_, &color_layer, &updated_blocks);
 
   // Generate a mesh from the "reconstruction"
-  MeshIntegrator mesh_integrator;
-  BlockLayer<MeshBlock> mesh_layer(block_size_m_, MemoryType::kDevice);
+  ColorMeshIntegrator mesh_integrator;
+  ColorMeshLayer mesh_layer(block_size_m_, MemoryType::kDevice);
   EXPECT_TRUE(
       mesh_integrator.integrateMeshFromDistanceField(gt_layer_, &mesh_layer));
-  mesh_integrator.colorMesh(color_layer, &mesh_layer);
+  mesh_integrator.updateAppearance(color_layer, &mesh_layer);
 
   ColorLayer color_layer_host(block_size_m_, MemoryType::kHost);
   color_layer_host.copyFrom(color_layer);
@@ -431,7 +435,7 @@ TEST_F(ColorIntegrationTest, ColoredSpheres) {
 
   // Write to file
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(mesh_layer, "colored_spheres.ply");
+    io::outputColorMeshLayerToPly(mesh_layer, "colored_spheres.ply");
   }
 }
 
@@ -465,8 +469,9 @@ TEST_F(ColorIntegrationTest, OcclusionTesting) {
   const auto image_1 = generateSolidColorImage(color_1, height_, width_);
 
   std::vector<Index3D> updated_blocks;
-  color_integrator.integrateFrame(image_1, T_S_C, camera_, gt_layer_,
-                                  &color_layer, &updated_blocks);
+  color_integrator.integrateFrame(
+      MaskedColorImageConstView(image_1, kMaskActiveEverywhere), T_S_C, camera_,
+      gt_layer_, &color_layer, &updated_blocks);
 
   ColorLayer color_layer_host(voxel_size_m_, MemoryType::kHost);
   color_layer_host.copyFrom(color_layer);
@@ -491,14 +496,14 @@ TEST_F(ColorIntegrationTest, OcclusionTesting) {
   }
 
   // Generate a mesh from the "reconstruction"
-  MeshIntegrator mesh_integrator;
-  MeshLayer mesh_layer(block_size_m_, MemoryType::kDevice);
+  ColorMeshIntegrator mesh_integrator;
+  ColorMeshLayer mesh_layer(block_size_m_, MemoryType::kDevice);
   EXPECT_TRUE(
       mesh_integrator.integrateMeshFromDistanceField(gt_layer_, &mesh_layer));
-  mesh_integrator.colorMesh(color_layer, &mesh_layer);
+  mesh_integrator.updateAppearance(color_layer, &mesh_layer);
 
   if (FLAGS_nvblox_test_file_output) {
-    io::outputMeshLayerToPly(mesh_layer, "colored_spheres_occluded.ply");
+    io::outputColorMeshLayerToPly(mesh_layer, "colored_spheres_occluded.ply");
   }
 }
 
@@ -536,12 +541,14 @@ TEST_F(ColorIntegrationTest, WeightingFunction) {
 
   // Integrate a frame
   std::vector<Index3D> updated_blocks;
-  integrator.integrateFrame(color_image, Transform::Identity(), camera_,
-                            tsdf_layer, &color_layer, &updated_blocks);
+  integrator.integrateFrame(
+      MaskedColorImageConstView(color_image, kMaskActiveEverywhere),
+      Transform::Identity(), camera_, tsdf_layer, &color_layer,
+      &updated_blocks);
 
   // Check that something actually happened
   EXPECT_GT(updated_blocks.size(), 0);
-  EXPECT_GT(color_layer.numAllocatedBlocks(), 0);
+  EXPECT_GT(color_layer.numBlocks(), 0);
 
   // Go over the voxels and check that they have the constant weight that we
   // expect.

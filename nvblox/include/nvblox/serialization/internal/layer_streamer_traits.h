@@ -36,8 +36,13 @@ struct SerializerTypeTrait {
 };
 
 template <>
-struct SerializerTypeTrait<MeshLayer> {
-  using type = MeshSerializerGpu;
+struct SerializerTypeTrait<ColorMeshLayer> {
+  using type = ColorMeshSerializerGpu;
+};
+
+template <>
+struct SerializerTypeTrait<FeatureMeshLayer> {
+  using type = FeatureMeshSerializerGpu;
 };
 
 template <>
@@ -63,6 +68,11 @@ struct SerializerTypeTrait<FreespaceLayer> {
 template <>
 struct SerializerTypeTrait<ColorLayer> {
   using type = ColorLayerSerializerGpu;
+};
+
+template <>
+struct SerializerTypeTrait<FeatureLayer> {
+  using type = FeatureLayerSerializerGpu;
 };
 
 struct DummyLayer;

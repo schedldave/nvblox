@@ -34,18 +34,22 @@ void BlocksToUpdateTracker::addBlocksToUpdate(
   // Function definition to update blocks.
   auto funct = [&](const std::vector<Index3D> vec) -> void {
     esdf_blocks_to_update_.insert(vec.begin(), vec.end());
-    mesh_blocks_to_update_.insert(vec.begin(), vec.end());
+    color_mesh_blocks_to_update_.insert(vec.begin(), vec.end());
+    feature_mesh_blocks_to_update_.insert(vec.begin(), vec.end());
     layer_streamer_blocks_to_update_.insert(vec.begin(), vec.end());
 
     if (hasFreespaceLayer(projective_layer_type_)) {
       freespace_blocks_to_update_.insert(vec.begin(), vec.end());
     }
-  };
 
-  clearIfTooLarge(esdf_blocks_to_update_, "esdf");
-  clearIfTooLarge(mesh_blocks_to_update_, "mesh");
-  clearIfTooLarge(layer_streamer_blocks_to_update_, "layer_streamer");
-  clearIfTooLarge(freespace_blocks_to_update_, "freespace");
+    // Safety vent to prevent the set from growing indefinitely if there is no
+    // consumer.
+    clearIfTooLarge(esdf_blocks_to_update_, "esdf");
+    clearIfTooLarge(color_mesh_blocks_to_update_, "color_mesh");
+    clearIfTooLarge(feature_mesh_blocks_to_update_, "feature_mesh");
+    clearIfTooLarge(layer_streamer_blocks_to_update_, "layer_streamer");
+    clearIfTooLarge(freespace_blocks_to_update_, "freespace");
+  };
 
   // Synchronize (wait for other async calls to finish) and
   // then call the update function asynchronous.
@@ -59,7 +63,8 @@ void BlocksToUpdateTracker::removeBlocksToUpdate(
   auto funct = [&](const std::vector<Index3D> vec) -> void {
     for (const Index3D& idx : vec) {
       esdf_blocks_to_update_.erase(idx);
-      mesh_blocks_to_update_.erase(idx);
+      color_mesh_blocks_to_update_.erase(idx);
+      feature_mesh_blocks_to_update_.erase(idx);
       layer_streamer_blocks_to_update_.erase(idx);
 
       if (hasFreespaceLayer(projective_layer_type_)) {
@@ -83,8 +88,12 @@ std::vector<Index3D> BlocksToUpdateTracker::getBlocksToUpdate(
   switch (blocks_to_update_type) {
     case BlocksToUpdateType::kEsdf:
       return {esdf_blocks_to_update_.begin(), esdf_blocks_to_update_.end()};
-    case BlocksToUpdateType::kMesh:
-      return {mesh_blocks_to_update_.begin(), mesh_blocks_to_update_.end()};
+    case BlocksToUpdateType::kColorMesh:
+      return {color_mesh_blocks_to_update_.begin(),
+              color_mesh_blocks_to_update_.end()};
+    case BlocksToUpdateType::kFeatureMesh:
+      return {feature_mesh_blocks_to_update_.begin(),
+              feature_mesh_blocks_to_update_.end()};
     case BlocksToUpdateType::kFreespace:
       return {freespace_blocks_to_update_.begin(),
               freespace_blocks_to_update_.end()};
@@ -105,8 +114,11 @@ void BlocksToUpdateTracker::markBlocksAsUpdated(
       case BlocksToUpdateType::kEsdf:
         esdf_blocks_to_update_.clear();
         break;
-      case BlocksToUpdateType::kMesh:
-        mesh_blocks_to_update_.clear();
+      case BlocksToUpdateType::kColorMesh:
+        color_mesh_blocks_to_update_.clear();
+        break;
+      case BlocksToUpdateType::kFeatureMesh:
+        feature_mesh_blocks_to_update_.clear();
         break;
       case BlocksToUpdateType::kFreespace:
         freespace_blocks_to_update_.clear();

@@ -29,28 +29,21 @@ def save_timing_statistics(timing_path: Union[str, PathLike],
     # Extract the means of the timers
     timings_df = get_timings_as_dataframe(timing_path)
     means_series = timings_df['mean']
-    means_series.index = [
-        'mean/' + row_name for row_name in means_series.index
-    ]
+    means_series.index = ['mean/' + row_name for row_name in means_series.index]
     total_series = timings_df['total_time']
-    total_series.index = [
-        'total/' + row_name for row_name in total_series.index
-    ]
+    total_series.index = ['total/' + row_name for row_name in total_series.index]
 
     # Write the results to a JSON
     output_timings_path = str(output_directory) + '/timing.json'
-    print(f"Writing the timings to: {output_timings_path}")
-    with open(output_timings_path, "w") as timings_file:
-        json.dump(pd.concat([means_series, total_series]).to_dict(),
-                  timings_file,
-                  indent=4)
+    print(f'Writing the timings to: {output_timings_path}')
+    with open(output_timings_path, 'w', encoding='utf-8') as timings_file:
+        json.dump(pd.concat([means_series, total_series]).to_dict(), timings_file, indent=4)
 
 
-def get_table_as_dataframe_from_string(
-        table_string: str,
-        name_to_column_index: Dict[str, int],
-        start_row: int = 0,
-        remove_last_row: bool = True) -> pd.DataFrame:
+def get_table_as_dataframe_from_string(table_string: str,
+                                       name_to_column_index: Dict[str, int],
+                                       start_row: int = 0,
+                                       remove_last_row: bool = True) -> pd.DataFrame:
     """
     Read an nvblox table from a .txt file and returns it as a DataFrame.
 
@@ -75,7 +68,7 @@ def get_table_as_dataframe_from_string(
     if remove_last_row:
         lines = lines[:-1]
     for line in lines[start_row:]:
-        entries = re.split('\s+|,', line)
+        entries = re.split(r'\s+|,', line)
         entries = [entry.strip('()[]') for entry in entries]
         index.append(entries[0])
         for name, column_idx in name_to_column_index.items():
@@ -105,11 +98,10 @@ def get_table_as_dataframe(filepath: Union[str, PathLike],
     pd.DataFrame: A DataFrame containing the tabular data.
 
     """
-    with open(filepath, 'r') as f:
+    with open(filepath, 'r', encoding='utf-8') as f:
         file_str = f.read()
-        return get_table_as_dataframe_from_string(file_str,
-                                                  name_to_column_index,
-                                                  start_row, remove_last_row)
+        return get_table_as_dataframe_from_string(file_str, name_to_column_index, start_row,
+                                                  remove_last_row)
 
 
 def get_timings_as_dataframe(filepath: Union[str, PathLike]) -> pd.DataFrame:
@@ -134,9 +126,7 @@ def get_timings_as_dataframe(filepath: Union[str, PathLike]) -> pd.DataFrame:
         'max': 7
     }
     start_row = 4
-    return get_table_as_dataframe(filepath,
-                                  name_to_column_index,
-                                  start_row=start_row)
+    return get_table_as_dataframe(filepath, name_to_column_index, start_row=start_row)
 
 
 def get_rates_as_dataframe(filepath: Union[str, PathLike]) -> pd.DataFrame:
@@ -154,6 +144,4 @@ def get_rates_as_dataframe(filepath: Union[str, PathLike]) -> pd.DataFrame:
     """
     name_to_column_index = {'num_samples': 1, 'mean': 2}
     start_row = 4
-    return get_table_as_dataframe(filepath,
-                                  name_to_column_index,
-                                  start_row=start_row)
+    return get_table_as_dataframe(filepath, name_to_column_index, start_row=start_row)

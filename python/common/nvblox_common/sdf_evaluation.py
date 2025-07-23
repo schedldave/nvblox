@@ -19,8 +19,7 @@ import numpy as np
 from nvblox_common.voxel_grid import VoxelGrid
 
 
-def get_sdf_abs_error_grid(reconstructed_sdf: VoxelGrid,
-                           gt_sdf: VoxelGrid) -> VoxelGrid:
+def get_sdf_abs_error_grid(reconstructed_sdf: VoxelGrid, gt_sdf: VoxelGrid) -> VoxelGrid:
     """
     Get the absolute difference between two grids of distance values.
 
@@ -40,19 +39,16 @@ def get_sdf_abs_error_grid(reconstructed_sdf: VoxelGrid,
     # Check that these two grids define different values for matching voxels.
     # At the moment they even have to be in the same order.
     voxel_center_position_epsilon = 1e-6
-    assert (np.max(reconstructed_sdf.get_valid_voxel_centers() -
-                   gt_sdf.get_valid_voxel_centers())
+    assert (np.max(reconstructed_sdf.get_valid_voxel_centers() - gt_sdf.get_valid_voxel_centers())
             < voxel_center_position_epsilon)
     # Figure out which voxels we should compare, voxels to compare are:
     # 1) GT positive (dont care if test is negative)
     compare_voxel_flags = gt_sdf.get_valid_voxel_values() >= 0.0
     # Getting the differences
-    comparison_xyz = reconstructed_sdf.get_valid_voxel_centers(
-    )[compare_voxel_flags]
+    comparison_xyz = reconstructed_sdf.get_valid_voxel_centers()[compare_voxel_flags]
     gt_values = gt_sdf.get_valid_voxel_values()[compare_voxel_flags]
-    reconstructed_values = reconstructed_sdf.get_valid_voxel_values(
-    )[compare_voxel_flags]
+    reconstructed_values = reconstructed_sdf.get_valid_voxel_values()[compare_voxel_flags]
     # Getting the differences
     absolute_diffs = np.abs(gt_values - reconstructed_values)
     # Chuck em in a grid
-    return VoxelGrid.createFromSparseVoxels(comparison_xyz, absolute_diffs)
+    return VoxelGrid.create_from_sparse_voxels(comparison_xyz, absolute_diffs)

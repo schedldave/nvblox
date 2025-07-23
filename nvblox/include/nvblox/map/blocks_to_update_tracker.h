@@ -23,7 +23,13 @@ limitations under the License.
 namespace nvblox {
 
 /// @brief Types of blocks being tracked.
-enum class BlocksToUpdateType { kEsdf, kMesh, kFreespace, kLayerStreamer };
+enum class BlocksToUpdateType {
+  kEsdf,
+  kColorMesh,
+  kFeatureMesh,
+  kFreespace,
+  kLayerStreamer
+};
 
 /// @brief Class to keep track of blocks that need to be updated.
 class BlocksToUpdateTracker {
@@ -55,10 +61,11 @@ class BlocksToUpdateTracker {
   ProjectiveLayerType projective_layer_type_;
 
   /// These collections keep track of the blocks which need to be updated on
-  /// the next calls to updateFreespace(), updateEsdf(), updateMesh(),
-  /// serializeLayers() respectively.
+  /// the next calls to updateFreespace(), updateEsdf(), updateColorMesh(),
+  /// updateFeatureMesh(), serializeLayers() respectively.
   Index3DSet esdf_blocks_to_update_;
-  Index3DSet mesh_blocks_to_update_;
+  Index3DSet color_mesh_blocks_to_update_;
+  Index3DSet feature_mesh_blocks_to_update_;
   Index3DSet freespace_blocks_to_update_;
   Index3DSet layer_streamer_blocks_to_update_;
 

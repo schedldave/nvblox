@@ -15,8 +15,6 @@ limitations under the License.
 */
 #include "nvblox/interpolation/interpolation_3d.h"
 
-#include "nvblox/utils/logging.h"
-
 namespace nvblox {
 namespace interpolation {
 

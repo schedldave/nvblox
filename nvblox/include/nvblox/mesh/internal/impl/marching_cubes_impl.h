@@ -61,8 +61,9 @@ inline void interpolateEdgeVertices(
   }
 }
 
+template <typename AppearanceType>
 inline void meshCube(const PerVoxelMarchingCubesResults& marching_cubes_results,
-                     MeshBlock* mesh) {
+                     MeshBlock<AppearanceType>* mesh) {
   CHECK_NOTNULL(mesh);
   const int table_index = marching_cubes_results.marching_cubes_table_index;
 
@@ -98,9 +99,9 @@ inline void meshCube(const PerVoxelMarchingCubesResults& marching_cubes_results,
     Vector3f px = (p1 - p0);
     Vector3f py = (p2 - p0);
     Vector3f n = px.cross(py).normalized();
-    mesh->normals.push_back(n);
-    mesh->normals.push_back(n);
-    mesh->normals.push_back(n);
+    mesh->vertex_normals.push_back(n);
+    mesh->vertex_normals.push_back(n);
+    mesh->vertex_normals.push_back(n);
     next_index += 3;
     table_col += 3;
   }

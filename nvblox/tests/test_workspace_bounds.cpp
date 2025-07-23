@@ -62,8 +62,9 @@ int checkWorkspaceIntegration(const Camera& camera,
 
   // Integrate a frame
   std::vector<Index3D> updated_blocks;
-  integrator.integrateFrame(depth_frame, Transform::Identity(), camera,
-                            &tsdf_layer, &updated_blocks);
+  integrator.integrateFrame(
+      MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere),
+      Transform::Identity(), camera, &tsdf_layer, &updated_blocks);
 
   // Check that something actually happened
   EXPECT_GT(updated_blocks.size(), 0);

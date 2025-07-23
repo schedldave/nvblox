@@ -18,19 +18,31 @@ limitations under the License.
 
 namespace nvblox {
 
+// NOTE(alexmillane): This union is used to zero the padding byte in the
+// ColorVoxel.
+//                    See below for more details.
+union ColorVoxelUnion {
+  ColorVoxel voxel;
+  uint8_t raw[sizeof(ColorVoxel)];
+};
+
 // Must be called with:
 // - a single block
 // - one thread per voxel
 __global__ void setColorBlockGray(ColorBlock* block_device_ptr) {
   ColorVoxel* voxel_ptr =
       &block_device_ptr->voxels[threadIdx.z][threadIdx.y][threadIdx.x];
-  // NOTE(dtingdahl): This is identical to the CPU initialization defined in
-  // voxels.h
-  voxel_ptr->color.r = 127;
-  voxel_ptr->color.g = 127;
-  voxel_ptr->color.b = 127;
-  voxel_ptr->color.a = 255;
-  voxel_ptr->weight = 0.0f;
+  // NOTE(alexmillane, 2025.05.02): This code below is being used to
+  // a) Zero all bytes in the ColorVoxelUnion (including the padding byte),
+  // b) Set the color to gray, and
+  // c) set the weight to 0.0f.
+  // We're taking care to zero the padding byte because the compute-sanitizer
+  // initcheck was firing when copying the ColorVoxel struct because when
+  // initializing naively, because the padding byte was uninitialized.
+  ColorVoxelUnion union_voxel = {};
+  union_voxel.voxel.color = Color::Gray();
+  union_voxel.voxel.weight = 0.0f;
+  memcpy(voxel_ptr, &union_voxel, sizeof(ColorVoxelUnion));
 }
 
 void setColorBlockGrayOnGPUAsync(ColorBlock* block_device_ptr,
@@ -69,13 +81,23 @@ void initializeBlocksAsync(host_vector<BlockType*>& blocks,
                                                           blocks.size());
 }
 
-// Specialization for meshblock
+// Specialization for ColorMeshBlock
 template <>
-void initializeBlocksAsync(host_vector<MeshBlock*>& blocks,
+void initializeBlocksAsync(host_vector<ColorMeshBlock*>& blocks,
                            const CudaStream& cuda_stream,
                            const MemoryType memory_type) {
   for (auto& ptr : blocks) {
-    MeshBlock::initAsync(ptr, memory_type, cuda_stream);
+    ColorMeshBlock::initAsync(ptr, memory_type, cuda_stream);
+  }
+}
+
+// Specialization for FeatureMeshBlock
+template <>
+void initializeBlocksAsync(host_vector<FeatureMeshBlock*>& blocks,
+                           const CudaStream& cuda_stream,
+                           const MemoryType memory_type) {
+  for (auto& ptr : blocks) {
+    FeatureMeshBlock::initAsync(ptr, memory_type, cuda_stream);
   }
 }
 
@@ -89,9 +111,15 @@ template void initializeBlocksAsync<OccupancyBlock>(
 template void initializeBlocksAsync<ColorBlock>(
     host_vector<ColorBlock*>& blocks, const CudaStream& cuda_stream,
     const MemoryType memory_type);
-template void initializeBlocksAsync<MeshBlock>(host_vector<MeshBlock*>& blocks,
-                                               const CudaStream& cuda_stream,
-                                               const MemoryType memory_type);
+template void initializeBlocksAsync<FeatureBlock>(
+    host_vector<FeatureBlock*>& blocks, const CudaStream& cuda_stream,
+    const MemoryType memory_type);
+template void initializeBlocksAsync<ColorMeshBlock>(
+    host_vector<ColorMeshBlock*>& blocks, const CudaStream& cuda_stream,
+    const MemoryType memory_type);
+template void initializeBlocksAsync<FeatureMeshBlock>(
+    host_vector<FeatureMeshBlock*>& blocks, const CudaStream& cuda_stream,
+    const MemoryType memory_type);
 template void initializeBlocksAsync<FreespaceBlock>(
     host_vector<FreespaceBlock*>& blocks, const CudaStream& cuda_stream,
     const MemoryType memory_type);

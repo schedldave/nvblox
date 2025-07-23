@@ -18,6 +18,7 @@ limitations under the License.
 #include <stack>
 #include <vector>
 #include "nvblox/core/unified_ptr.h"
+#include "nvblox/map/internal/block_memory_pool_params.h"
 
 namespace nvblox {
 
@@ -36,21 +37,31 @@ template <class BlockType>
 class BlockMemoryPool {
  public:
   /// Constructor that allocates blocks
-  /// @param memory_type              Memory type
-  /// @param num_preallocated_blocks  Number of blocks allocated on construction
-  BlockMemoryPool(const MemoryType memory_type,
-                  const int num_preallocated_blocks = 2048);
+  /// @param params Parameters governing the behavior of the block memory pool.
+  BlockMemoryPool(const BlockMemoryPoolParams params = BlockMemoryPoolParams());
 
-  /// Obtain a block from the pool. Should be used instead of allocating a new
-  /// block. The pool is expanded if there are no more blocks remaining.
-  /// @param cuda_stream Used when allocating memory in case the buffer needs
-  ///                    expansion. Will be synchronized.
+  /// Obtain a block from the pool. Should be used instead of allocating a
+  /// new block. The pool is expanded if there are no more blocks remaining.
+  /// @param cuda_stream Used when allocating memory in case the buffer
+  /// needs
+
   typename BlockType::Ptr popBlock(const CudaStream& cuda_stream);
 
-  /// Return a block to the pool. Should be used instead of de-allocating the
-  /// block.
+  /// Return a block to the pool. Should be used instead of de-allocating
+  /// the block.
   /// @param block  Block to push
   void pushBlock(typename BlockType::Ptr block);
+
+  /// Return the number of bytes occupied by all blocks in the pool
+  size_t numAllocatedBytes() const {
+    return num_allocated_blocks_ * sizeof(BlockType);
+  }
+
+  /// Return the number of blocks allocated
+  size_t numAllocatedBlocks() const { return num_allocated_blocks_; }
+
+  /// Return the parameters
+  const BlockMemoryPoolParams& params() const { return params_; }
 
  private:
   /// Expand the memory pool and synchronize the stream
@@ -63,13 +74,11 @@ class BlockMemoryPool {
   /// Container for storing blocks that should be re-initialized
   host_vector<BlockType*> recycled_blocks_;
 
-  /// Type of memory stored
-  MemoryType memory_type_;
+  /// Current size of the pool
   int num_allocated_blocks_ = 0;
 
-  /// When expanding the pool, this number is muliplied with the current
-  /// num_allocated_blocks to get the new size.
-  static constexpr int kExpansionFactor = 2;
+  /// Parameters
+  BlockMemoryPoolParams params_;
 };
 
 }  // namespace nvblox

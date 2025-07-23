@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.2.0
+ARG BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.4.0
 
 FROM $BASE_IMAGE
 
@@ -10,7 +10,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update && apt-get install -y tzdata
 
 # Install basics.
-RUN apt-get update && apt-get install -y ssh git jq gnupg apt-utils software-properties-common build-essential python3-pip sudo
+RUN apt-get update && apt-get install -y ssh git jq gnupg apt-utils software-properties-common build-essential python3-pip sudo python3-venv unzip
 
 # Install dependencies.
 RUN apt-get update && apt-get install -y libgoogle-glog-dev libgtest-dev libbenchmark-dev curl libsqlite3-dev
@@ -40,3 +40,16 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
 RUN cd /usr/src/googletest && cmake . && cmake --build . --target install
 
 ENV DEBIAN_FRONTEND teletype
+
+RUN python3 -m venv /opt/venv
+
+# Setup env variables by adding them to the global bashrc.
+RUN touch /etc/nvblox_env.sh
+RUN echo 'PATH=$PATH:/usr/local/cuda/bin' | tee --append /etc/nvblox_env.sh && \
+    echo 'export CUDA_PATH=/usr/local/cuda' | tee --append /etc/nvblox_env.sh && \
+    # Always activate the venv upon login
+    echo 'source /opt/venv/bin/activate' | tee --append /etc/nvblox_env.sh
+RUN echo 'source /etc/nvblox_env.sh' | tee --append /etc/bash.bashrc
+
+# Ensure that a local user can access the python venv
+RUN chmod -R a+rw /opt/venv

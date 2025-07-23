@@ -25,12 +25,12 @@ limitations under the License.
 
 namespace nvblox {
 
-Mapper::Mapper(float voxel_size_m, MemoryType memory_type,
+Mapper::Mapper(float voxel_size_m,
+               BlockMemoryPoolParams block_memory_pool_params,
                ProjectiveLayerType projective_layer_type,
                std::shared_ptr<CudaStream> cuda_stream)
     : cuda_stream_(cuda_stream),
       voxel_size_m_(voxel_size_m),
-      memory_type_(memory_type),
       projective_layer_type_(projective_layer_type),
       tsdf_integrator_(cuda_stream),
       lidar_tsdf_integrator_(cuda_stream),
@@ -39,27 +39,31 @@ Mapper::Mapper(float voxel_size_m, MemoryType memory_type,
       lidar_occupancy_integrator_(cuda_stream),
       tsdf_shape_clearer_(cuda_stream),
       color_integrator_(cuda_stream),
-      mesh_integrator_(cuda_stream),
+      feature_integrator_(cuda_stream),
+      color_mesh_integrator_(cuda_stream),
+      feature_mesh_integrator_(cuda_stream),
       esdf_integrator_(cuda_stream),
       depth_preprocessor_(cuda_stream),
       blocks_to_update_tracker_(projective_layer_type) {
-  layers_ =
-      LayerCake::create<TsdfLayer, ColorLayer, FreespaceLayer, OccupancyLayer,
-                        EsdfLayer, MeshLayer>(voxel_size_m_, memory_type);
+  layers_ = LayerCake::create<TsdfLayer, ColorLayer, FeatureLayer,
+                              FreespaceLayer, OccupancyLayer, EsdfLayer,
+                              ColorMeshLayer, FeatureMeshLayer>(
+      voxel_size_m_, block_memory_pool_params);
   layer_streamers_ =
-      LayerCakeStreamer::create<TsdfLayer, ColorLayer, FreespaceLayer,
-                                OccupancyLayer, EsdfLayer, MeshLayer>();
+      LayerCakeStreamer::create<TsdfLayer, ColorLayer, FeatureLayer,
+                                FreespaceLayer, OccupancyLayer, EsdfLayer,
+                                ColorMeshLayer, FeatureMeshLayer>();
   // Make the camera integrators share the same viewpoint cache.
   shareViewpointCaches(&tsdf_integrator_, &occupancy_integrator_,
-                       &color_integrator_);
+                       &color_integrator_, &feature_integrator_);
   // Make the LiDAR integrators share the same viewpoint cache
   shareViewpointCaches(&lidar_tsdf_integrator_, &lidar_occupancy_integrator_);
 }
 
-Mapper::Mapper(const std::string& map_filepath, MemoryType memory_type,
+Mapper::Mapper(const std::string& map_filepath,
+               BlockMemoryPoolParams block_memory_pool_params,
                std::shared_ptr<CudaStream> cuda_stream)
     : cuda_stream_(cuda_stream),
-      memory_type_(memory_type),
       tsdf_integrator_(cuda_stream),
       lidar_tsdf_integrator_(cuda_stream),
       freespace_integrator_(cuda_stream),
@@ -67,11 +71,13 @@ Mapper::Mapper(const std::string& map_filepath, MemoryType memory_type,
       lidar_occupancy_integrator_(cuda_stream),
       tsdf_shape_clearer_(cuda_stream),
       color_integrator_(cuda_stream),
-      mesh_integrator_(cuda_stream),
+      feature_integrator_(cuda_stream),
+      color_mesh_integrator_(cuda_stream),
+      feature_mesh_integrator_(cuda_stream),
       esdf_integrator_(cuda_stream),
       depth_preprocessor_(cuda_stream),
       blocks_to_update_tracker_(kDefaultProjectiveLayerType) {
-  loadMap(map_filepath);
+  loadMap(map_filepath, block_memory_pool_params);
 }
 
 void Mapper::setMapperParams(const MapperParams& params) {
@@ -112,6 +118,9 @@ void Mapper::setMapperParams(const MapperParams& params) {
   color_integrator().max_integration_distance_m(
       params.projective_integrator_params
           .projective_integrator_max_integration_distance_m);
+  feature_integrator().max_integration_distance_m(
+      params.projective_integrator_params
+          .projective_integrator_max_integration_distance_m);
   lidar_tsdf_integrator().max_integration_distance_m(
       params.projective_integrator_params
           .lidar_projective_integrator_max_integration_distance_m);
@@ -136,12 +145,16 @@ void Mapper::setMapperParams(const MapperParams& params) {
       params.projective_integrator_params.projective_integrator_weighting_mode);
   color_integrator().weighting_function_type(
       params.projective_integrator_params.projective_integrator_weighting_mode);
+  feature_integrator().weighting_function_type(
+      params.projective_integrator_params.projective_integrator_weighting_mode);
   // max weight
   tsdf_integrator().max_weight(
       params.projective_integrator_params.projective_integrator_max_weight);
   lidar_tsdf_integrator().max_weight(
       params.projective_integrator_params.projective_integrator_max_weight);
   color_integrator().max_weight(
+      params.projective_integrator_params.projective_integrator_max_weight);
+  feature_integrator().max_weight(
       params.projective_integrator_params.projective_integrator_max_weight);
   // invalid depth decay
   tsdf_integrator().invalid_depth_decay_factor(
@@ -196,11 +209,27 @@ void Mapper::setMapperParams(const MapperParams& params) {
       Vector3f(params.view_calculator_params.workspace_bounds_max_corner_x_m,
                params.view_calculator_params.workspace_bounds_max_corner_y_m,
                params.view_calculator_params.workspace_bounds_max_height_m));
+  feature_integrator().view_calculator().raycast_subsampling_factor(
+      params.view_calculator_params.raycast_subsampling_factor);
+  feature_integrator().view_calculator().workspace_bounds_type(
+      params.view_calculator_params.workspace_bounds_type);
+  feature_integrator().view_calculator().workspace_bounds_min_corner_m(
+      Vector3f(params.view_calculator_params.workspace_bounds_min_corner_x_m,
+               params.view_calculator_params.workspace_bounds_min_corner_y_m,
+               params.view_calculator_params.workspace_bounds_min_height_m));
+  feature_integrator().view_calculator().workspace_bounds_max_corner_m(
+      Vector3f(params.view_calculator_params.workspace_bounds_max_corner_x_m,
+               params.view_calculator_params.workspace_bounds_max_corner_y_m,
+               params.view_calculator_params.workspace_bounds_max_height_m));
 
   // ======= MESH INTEGRATOR =======
-  mesh_integrator().min_weight(
+  color_mesh_integrator().min_weight(
       params.mesh_integrator_params.mesh_integrator_min_weight);
-  mesh_integrator().weld_vertices(
+  color_mesh_integrator().weld_vertices(
+      params.mesh_integrator_params.mesh_integrator_weld_vertices);
+  feature_mesh_integrator().min_weight(
+      params.mesh_integrator_params.mesh_integrator_min_weight);
+  feature_mesh_integrator().weld_vertices(
       params.mesh_integrator_params.mesh_integrator_weld_vertices);
 
   // ======= DECAY INTEGRATOR (TSDF/OCCUPANCY)=======
@@ -246,6 +275,54 @@ void Mapper::setMapperParams(const MapperParams& params) {
       params.freespace_integrator_params.check_neighborhood);
 }
 
+TsdfLayer& Mapper::tsdf_layer() {
+  auto ptr = layers_.getPtr<TsdfLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
+OccupancyLayer& Mapper::occupancy_layer() {
+  auto ptr = layers_.getPtr<OccupancyLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
+FreespaceLayer& Mapper::freespace_layer() {
+  auto ptr = layers_.getPtr<FreespaceLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
+ColorLayer& Mapper::color_layer() {
+  auto ptr = layers_.getPtr<ColorLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
+FeatureLayer& Mapper::feature_layer() {
+  auto ptr = layers_.getPtr<FeatureLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
+EsdfLayer& Mapper::esdf_layer() {
+  auto ptr = layers_.getPtr<EsdfLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
+ColorMeshLayer& Mapper::color_mesh_layer() {
+  auto ptr = layers_.getPtr<ColorMeshLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
+FeatureMeshLayer& Mapper::feature_mesh_layer() {
+  auto ptr = layers_.getPtr<FeatureMeshLayer>();
+  CHECK_NOTNULL(ptr);
+  return *ptr;
+}
+
 const DepthImage& Mapper::preprocessDepthImageAsync(
     const DepthImageConstView& depth_image) {
   // NOTE(alexmillane): We return a const reference to an image, to
@@ -267,7 +344,8 @@ const DepthImage& Mapper::preprocessDepthImageAsync(
 
 void Mapper::integrateDepth(const DepthImage& depth_frame,
                             const Transform& T_L_C, const Camera& camera) {
-  integrateDepth(MaskedDepthImageConstView(depth_frame), T_L_C, camera);
+  integrateDepth(MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere),
+                 T_L_C, camera);
 }
 
 void Mapper::integrateDepth(const MaskedDepthImageConstView& depth_frame,
@@ -328,15 +406,15 @@ void Mapper::integrateLidarDepth(const DepthImage& depth_frame,
   // Call the integrator.
   std::vector<Index3D> updated_blocks;
   if (hasTsdfLayer(projective_layer_type_)) {
-    lidar_tsdf_integrator_.integrateFrame(depth_frame, T_L_C, lidar,
-                                          layers_.getPtr<TsdfLayer>(),
-                                          &updated_blocks);
+    lidar_tsdf_integrator_.integrateFrame(
+        MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+        lidar, layers_.getPtr<TsdfLayer>(), &updated_blocks);
 
     layers_.getPtr<TsdfLayer>()->updateGpuHash(*cuda_stream_);
   } else if (projective_layer_type_ == ProjectiveLayerType::kOccupancy) {
-    lidar_occupancy_integrator_.integrateFrame(depth_frame, T_L_C, lidar,
-                                               layers_.getPtr<OccupancyLayer>(),
-                                               &updated_blocks);
+    lidar_occupancy_integrator_.integrateFrame(
+        MaskedDepthImageConstView(depth_frame, kMaskActiveEverywhere), T_L_C,
+        lidar, layers_.getPtr<OccupancyLayer>(), &updated_blocks);
 
     layers_.getPtr<OccupancyLayer>()->updateGpuHash(*cuda_stream_);
   }
@@ -346,13 +424,35 @@ void Mapper::integrateLidarDepth(const DepthImage& depth_frame,
 
 void Mapper::integrateColor(const ColorImage& color_frame,
                             const Transform& T_L_C, const Camera& camera) {
+  integrateColor(MaskedColorImageConstView(color_frame, kMaskActiveEverywhere),
+                 T_L_C, camera);
+}
+
+void Mapper::integrateColor(const MaskedColorImageConstView& color_frame,
+                            const Transform& T_L_C, const Camera& camera) {
   // Color is only integrated for Tsdf layers (not for occupancy)
   if (hasTsdfLayer(projective_layer_type_)) {
-    color_integrator_.integrateFrame(color_frame, T_L_C, camera,
-                                     layers_.get<TsdfLayer>(),
-                                     layers_.getPtr<ColorLayer>());
+    std::vector<Index3D> updated_blocks;
+    color_integrator_.integrateFrame(
+        color_frame, T_L_C, camera, layers_.get<TsdfLayer>(),
+        layers_.getPtr<ColorLayer>(), &updated_blocks);
 
     layers_.getPtr<ColorLayer>()->updateGpuHash(*cuda_stream_);
+    blocks_to_update_tracker_.addBlocksToUpdate(updated_blocks);
+  }
+}
+
+void Mapper::integrateFeatures(const MaskedFeatureImageConstView& feature_frame,
+                               const Transform& T_L_C, const Camera& camera) {
+  // Features are only integrated for Tsdf layers (not for occupancy)
+  if (hasTsdfLayer(projective_layer_type_)) {
+    std::vector<Index3D> updated_blocks;
+    feature_integrator_.integrateFrame(
+        feature_frame, T_L_C, camera, layers_.get<TsdfLayer>(),
+        layers_.getPtr<FeatureLayer>(), &updated_blocks);
+
+    layers_.getPtr<FeatureLayer>()->updateGpuHash(*cuda_stream_);
+    blocks_to_update_tracker_.addBlocksToUpdate(updated_blocks);
   }
 }
 
@@ -364,27 +464,26 @@ void Mapper::decayTsdf() {
   blocks_to_update_tracker_.addBlocksToUpdate(all_blocks);
 
   // Decay - either all blocks or exclude a view
-  std::vector<Index3D> deallocated_blocks;
+  std::vector<Index3D> removed_blocks;
   if (exclude_last_view_from_decay_) {
     if (last_depth_image_.has_value() && last_depth_camera_.has_value() &&
         last_depth_T_L_C_.has_value()) {
-      deallocated_blocks = tsdf_decay_integrator_.decay(
+      removed_blocks = tsdf_decay_integrator_.decay(
           layers_.getPtr<TsdfLayer>(),
           ViewBasedInclusionData(
               last_depth_T_L_C_.value(), last_depth_camera_.value(),
-              &last_depth_image_.value(),
-              tsdf_integrator_.max_integration_distance_m(),
+              last_depth_image_, tsdf_integrator_.max_integration_distance_m(),
               tsdf_integrator_.get_truncation_distance_m(voxel_size_m_)),
           *cuda_stream_);
     }
   } else {
-    deallocated_blocks = tsdf_decay_integrator_.decay(
-        layers_.getPtr<TsdfLayer>(), *cuda_stream_);
+    removed_blocks = tsdf_decay_integrator_.decay(layers_.getPtr<TsdfLayer>(),
+                                                  *cuda_stream_);
   }
 
-  // Clear the blocks that got deallocated in the tsdf layer also in the esdf,
+  // Clear the blocks that got removed in the tsdf layer also in the esdf,
   // freespace and mesh layers.
-  clearBlocksInLayers(deallocated_blocks);
+  clearBlocksInLayers(removed_blocks);
   layers_.getPtr<TsdfLayer>()->updateGpuHash(*cuda_stream_);
 }
 
@@ -396,26 +495,26 @@ void Mapper::decayOccupancy() {
   blocks_to_update_tracker_.addBlocksToUpdate(all_blocks);
 
   // Decay - either all blocks or exclude a view
-  std::vector<Index3D> deallocated_blocks;
+  std::vector<Index3D> removed_blocks;
   if (exclude_last_view_from_decay_) {
     if (last_depth_image_ && last_depth_camera_ && last_depth_T_L_C_) {
-      deallocated_blocks = occupancy_decay_integrator_.decay(
+      removed_blocks = occupancy_decay_integrator_.decay(
           layers_.getPtr<OccupancyLayer>(), std::nullopt,
           ViewBasedInclusionData(
               last_depth_T_L_C_.value(), last_depth_camera_.value(),
-              &last_depth_image_.value(),
+              last_depth_image_,
               occupancy_integrator_.max_integration_distance_m(),
               occupancy_integrator_.get_truncation_distance_m(voxel_size_m_)),
           *cuda_stream_);
     }
   } else {
-    deallocated_blocks = occupancy_decay_integrator_.decay(
+    removed_blocks = occupancy_decay_integrator_.decay(
         layers_.getPtr<OccupancyLayer>(), *cuda_stream_);
   }
 
-  // Clear the blocks that got deallocated in the occupancy layer also in the
+  // Clear the blocks that got removed in the occupancy layer also in the
   // esdf, freespace and mesh layers.
-  clearBlocksInLayers(deallocated_blocks);
+  clearBlocksInLayers(removed_blocks);
   layers_.getPtr<OccupancyLayer>()->updateGpuHash(*cuda_stream_);
 }
 
@@ -444,7 +543,7 @@ void Mapper::updateFreespace(Time update_time_ms, const Transform& T_L_C,
   updateFreespace(
       update_time_ms,
       ViewBasedInclusionData(
-          T_L_C, camera, &depth_frame,
+          T_L_C, camera, depth_frame,
           tsdf_integrator_.max_integration_distance_m(),
           kTruncationDistanceMultipler *
               tsdf_integrator_.get_truncation_distance_m(voxel_size_m_)),
@@ -471,25 +570,45 @@ void Mapper::updateFreespace(
   layers_.getPtr<FreespaceLayer>()->updateGpuHash(*cuda_stream_);
 }
 
-void Mapper::updateMesh(UpdateFullLayer update_full_layer) {
+template <typename AppearanceVoxelType>
+void Mapper::updateMeshTemplate(
+    MeshIntegrator<AppearanceVoxelType>& mesh_integrator,
+    UpdateFullLayer update_full_layer,
+    BlocksToUpdateType blocks_to_update_type) {
+  // Defining types.
+  using AppearanceType = typename AppearanceVoxelType::ArrayType;
+  using MeshLayerType = MeshBlockLayer<AppearanceType>;
+  using AppearanceLayerType = VoxelBlockLayer<AppearanceVoxelType>;
+
   // Mesh is only updated for Tsdf layers (not for occupancy)
   if (!hasTsdfLayer(projective_layer_type_)) {
     return;
   } else {
     // Get the mesh blocks that need an update
     std::vector<Index3D> blocks_to_update =
-        getBlocksToUpdate(BlocksToUpdateType::kMesh, update_full_layer);
+        getBlocksToUpdate(blocks_to_update_type, update_full_layer);
 
     // Call the integrator.
-    mesh_integrator_.integrateBlocksGPU(layers_.get<TsdfLayer>(),
-                                        blocks_to_update,
-                                        layers_.getPtr<MeshLayer>());
+    mesh_integrator.integrateBlocksGPU(layers_.get<TsdfLayer>(),
+                                       blocks_to_update,
+                                       layers_.getPtr<MeshLayerType>());
 
-    mesh_integrator_.colorMesh(layers_.get<ColorLayer>(), blocks_to_update,
-                               layers_.getPtr<MeshLayer>());
+    mesh_integrator.updateAppearance(layers_.get<AppearanceLayerType>(),
+                                     blocks_to_update,
+                                     layers_.getPtr<MeshLayerType>());
 
-    blocks_to_update_tracker_.markBlocksAsUpdated(BlocksToUpdateType::kMesh);
+    blocks_to_update_tracker_.markBlocksAsUpdated(blocks_to_update_type);
   }
+}
+
+void Mapper::updateFeatureMesh(UpdateFullLayer update_full_layer) {
+  updateMeshTemplate(feature_mesh_integrator(), update_full_layer,
+                     BlocksToUpdateType::kFeatureMesh);
+}
+
+void Mapper::updateColorMesh(UpdateFullLayer update_full_layer) {
+  updateMeshTemplate(color_mesh_integrator(), update_full_layer,
+                     BlocksToUpdateType::kColorMesh);
 }
 
 void Mapper::updateEsdf(UpdateFullLayer update_full_layer) {
@@ -584,7 +703,7 @@ void Mapper::clearOutsideRadius(const Vector3f& center, float radius) {
         block_indices_for_deletion, *cuda_stream_);
   }
 
-  // Clear the blocks that got deallocated in the tsdf/occupancy layer also in
+  // Clear the blocks that got removed in the tsdf/occupancy layer also in
   // the esdf, freespace and mesh layers.
   clearBlocksInLayers(block_indices_for_deletion);
 }
@@ -636,9 +755,13 @@ void Mapper::clearBlocksInLayers(const std::vector<Index3D>& blocks_to_clear) {
   // Clear the mesh and color blocks.
   layers_.getPtr<ColorLayer>()->clearBlocksAsync(blocks_to_clear,
                                                  *cuda_stream_);
+  layers_.getPtr<FeatureLayer>()->clearBlocksAsync(blocks_to_clear,
+                                                   *cuda_stream_);
   if (hasTsdfLayer(projective_layer_type_)) {
-    layers_.getPtr<MeshLayer>()->clearBlocksAsync(blocks_to_clear,
-                                                  *cuda_stream_);
+    layers_.getPtr<ColorMeshLayer>()->clearBlocksAsync(blocks_to_clear,
+                                                       *cuda_stream_);
+    layers_.getPtr<FeatureMeshLayer>()->clearBlocksAsync(blocks_to_clear,
+                                                         *cuda_stream_);
   }
   // Clear the freespace blocks, if existent.
   if (hasFreespaceLayer(projective_layer_type_)) {
@@ -710,7 +833,7 @@ void Mapper::clearBlocksInLayers(const std::vector<Index3D>& blocks_to_clear) {
     }
   }
 
-  // We don't need to update the deallocated blocks.
+  // We don't need to update the removed blocks.
   blocks_to_update_tracker_.removeBlocksToUpdate(blocks_to_clear);
 
   // We need to keep track of cleared blocks to delete them in our
@@ -726,8 +849,10 @@ bool Mapper::saveLayerCake(const char* filename) const {
   return saveLayerCake(std::string(filename));
 }
 
-bool Mapper::loadMap(const std::string& filename) {
-  LayerCake new_cake = io::loadLayerCakeFromFile(filename, memory_type_);
+bool Mapper::loadMap(const std::string& filename,
+                     const BlockMemoryPoolParams block_memory_pool_params) {
+  LayerCake new_cake =
+      io::loadLayerCakeFromFile(filename, block_memory_pool_params.memory_type);
   // Will return an empty cake if anything went wrong.
   if (new_cake.empty()) {
     LOG(ERROR) << "Failed to load map from file: " << filename;
@@ -753,20 +878,28 @@ bool Mapper::loadMap(const std::string& filename) {
   blocks_to_update_tracker_.markBlocksAsUpdated(BlocksToUpdateType::kEsdf);
 
   // We can't serialize mesh layers yet so we have to add a new mesh layer.
-  std::unique_ptr<MeshLayer> mesh(
-      new MeshLayer(layers_.getPtr<TsdfLayer>()->block_size(), memory_type_));
-  layers_.insert(typeid(MeshLayer), std::move(mesh));
-  updateMesh(UpdateFullLayer::kYes);
+  std::unique_ptr<ColorMeshLayer> mesh(
+      new ColorMeshLayer(layers_.getPtr<TsdfLayer>()->block_size(),
+                         block_memory_pool_params.memory_type.get()));
+  layers_.insert(typeid(ColorMeshLayer), std::move(mesh));
+  updateColorMesh(UpdateFullLayer::kYes);
+
+  std::unique_ptr<FeatureMeshLayer> feature_mesh(
+      new FeatureMeshLayer(layers_.getPtr<TsdfLayer>()->block_size(),
+                           block_memory_pool_params.memory_type.get()));
+  layers_.insert(typeid(FeatureMeshLayer), std::move(feature_mesh));
+  updateFeatureMesh(UpdateFullLayer::kYes);
 
   return true;
 }
 
-bool Mapper::loadMap(const char* filename) {
-  return loadMap(std::string(filename));
+bool Mapper::loadMap(const char* filename,
+                     BlockMemoryPoolParams block_memory_pool_params) {
+  return loadMap(std::string(filename), block_memory_pool_params);
 }
 
-bool Mapper::saveMeshAsPly(const std::string& filepath) const {
-  return io::outputMeshLayerToPly(mesh_layer(), filepath);
+bool Mapper::saveColorMeshAsPly(const std::string& filepath) const {
+  return io::outputColorMeshLayerToPly(color_mesh_layer(), filepath);
 }
 
 bool Mapper::saveEsdfAsPly(const std::string& filename) const {
@@ -792,7 +925,6 @@ parameters::ParameterTreeNode Mapper::getParameterTree(
   return ParameterTreeNode(
       name,
       {ParameterTreeNode("voxel_size_m", voxel_size_m_),
-       ParameterTreeNode("memory_type", memory_type_),
        ParameterTreeNode("projective_layer_type", projective_layer_type_),
        ParameterTreeNode("esdf_mode", esdf_mode_),
        ParameterTreeNode("do_depth_preprocessing", do_depth_preprocessing_),
@@ -803,10 +935,13 @@ parameters::ParameterTreeNode Mapper::getParameterTree(
        tsdf_integrator_.getParameterTree("camera_tsdf_integrator"),
        lidar_tsdf_integrator_.getParameterTree("lidar_tsdf_integrator"),
        color_integrator_.getParameterTree(),
+       feature_integrator_.getParameterTree(),
        occupancy_integrator_.getParameterTree("camera_occupancy_integrator"),
        lidar_occupancy_integrator_.getParameterTree(
            "lidar_occupancy_integrator"),
-       esdf_integrator_.getParameterTree(), mesh_integrator_.getParameterTree(),
+       esdf_integrator_.getParameterTree(),
+       color_mesh_integrator_.getParameterTree(),
+       feature_mesh_integrator_.getParameterTree(),
        occupancy_decay_integrator_.getParameterTree(),
        tsdf_decay_integrator_.getParameterTree(),
        freespace_integrator_.getParameterTree()});
@@ -816,30 +951,37 @@ std::string Mapper::getParametersAsString() const {
   return parameterTreeToString(getParameterTree());
 }
 
-std::shared_ptr<const SerializedMeshLayer> Mapper::serializedMeshLayer() {
-  return layer_streamers_.getSerializedLayer<MeshLayer>();
+std::shared_ptr<SerializedColorMeshLayer> Mapper::serializedColorMeshLayer() {
+  return layer_streamers_.getSerializedLayer<ColorMeshLayer>();
 }
 
-std::shared_ptr<const SerializedTsdfLayer> Mapper::serializedTsdfLayer() {
+std::shared_ptr<SerializedFeatureMeshLayer>
+Mapper::serializedFeatureMeshLayer() {
+  return layer_streamers_.getSerializedLayer<FeatureMeshLayer>();
+}
+
+std::shared_ptr<SerializedTsdfLayer> Mapper::serializedTsdfLayer() {
   return layer_streamers_.getSerializedLayer<TsdfLayer>();
 }
 
-std::shared_ptr<const SerializedOccupancyLayer>
-Mapper::serializedOccupancyLayer() {
+std::shared_ptr<SerializedOccupancyLayer> Mapper::serializedOccupancyLayer() {
   return layer_streamers_.getSerializedLayer<OccupancyLayer>();
 }
 
-std::shared_ptr<const SerializedFreespaceLayer>
-Mapper::serializedFreespaceLayer() {
+std::shared_ptr<SerializedFreespaceLayer> Mapper::serializedFreespaceLayer() {
   return layer_streamers_.getSerializedLayer<FreespaceLayer>();
 }
 
-std::shared_ptr<const SerializedEsdfLayer> Mapper::serializedEsdfLayer() {
+std::shared_ptr<SerializedEsdfLayer> Mapper::serializedEsdfLayer() {
   return layer_streamers_.getSerializedLayer<EsdfLayer>();
 }
 
-std::shared_ptr<const SerializedColorLayer> Mapper::serializedColorLayer() {
+std::shared_ptr<SerializedColorLayer> Mapper::serializedColorLayer() {
   return layer_streamers_.getSerializedLayer<ColorLayer>();
+}
+
+std::shared_ptr<SerializedFeatureLayer> Mapper::serializedFeatureLayer() {
+  return layer_streamers_.getSerializedLayer<FeatureLayer>();
 }
 
 void Mapper::serializeColorTsdfAndFreespaceLayers(
@@ -874,28 +1016,39 @@ void Mapper::serializeColorTsdfAndFreespaceLayers(
 
 void Mapper::serializeSelectedLayers(
     const LayerTypeBitMask layer_type_bitmask, const float bandwidth_limit_mbps,
-    const BlockExclusionParams& exclusion_params) {
+    const BlockExclusionParams& exclusion_params,
+    std::optional<std::vector<Index3D>> blocks_to_serialize_opt) {
   // Figure out which blocks to serialize
   // Note that all layers need to be serialized simultaneously since they all
   // share the same BlocksToUpdate tracker
-  std::vector<Index3D> blocks_to_serialize =
-      blocks_to_update_tracker_.getBlocksToUpdate(
-          BlocksToUpdateType::kLayerStreamer);
+  std::vector<Index3D> blocks_to_serialize;
+  if (blocks_to_serialize_opt.has_value()) {
+    blocks_to_serialize = blocks_to_serialize_opt.value();
+  } else {
+    blocks_to_serialize = blocks_to_update_tracker_.getBlocksToUpdate(
+        BlocksToUpdateType::kLayerStreamer);
+  }
 
-  // Color layer is handled separately since we also need to serialize geometry
-  // blocks in order to visualize it.
+  // Serialize meshes
+  if (layer_type_bitmask & LayerType::kColorMesh) {
+    layer_streamers_.estimateBandwidthAndSerialize(
+        color_mesh_layer(), blocks_to_serialize, "color_mesh", exclusion_params,
+        bandwidth_limit_mbps, *cuda_stream_);
+  }
+
+  if (layer_type_bitmask & LayerType::kFeatureMesh) {
+    layer_streamers_.estimateBandwidthAndSerialize(
+        feature_mesh_layer(), blocks_to_serialize, "feature_mesh",
+        exclusion_params, bandwidth_limit_mbps, *cuda_stream_);
+  }
+
+  // Color layer is handled separately since we also need to serialize
+  // geometry blocks in order to visualize it.
   if (layer_type_bitmask & LayerType::kColor) {
     serializeColorTsdfAndFreespaceLayers(
         blocks_to_serialize, layer_type_bitmask, bandwidth_limit_mbps,
         exclusion_params);
   } else {
-    // Mesh
-    if (layer_type_bitmask & LayerType::kMesh) {
-      layer_streamers_.estimateBandwidthAndSerialize(
-          mesh_layer(), blocks_to_serialize, "mesh", exclusion_params,
-          bandwidth_limit_mbps, *cuda_stream_);
-    }
-
     // TSDF layer
     if (layer_type_bitmask & LayerType::kTsdf) {
       layer_streamers_.estimateBandwidthAndSerialize(
@@ -921,6 +1074,12 @@ void Mapper::serializeSelectedLayers(
     if (layer_type_bitmask & LayerType::kFreespace) {
       layer_streamers_.estimateBandwidthAndSerialize(
           freespace_layer(), blocks_to_serialize, "freespace", exclusion_params,
+          bandwidth_limit_mbps, *cuda_stream_);
+    }
+    // Feature layer
+    if (layer_type_bitmask & LayerType::kFeature) {
+      layer_streamers_.estimateBandwidthAndSerialize(
+          feature_layer(), blocks_to_serialize, "feature", exclusion_params,
           bandwidth_limit_mbps, *cuda_stream_);
     }
   }

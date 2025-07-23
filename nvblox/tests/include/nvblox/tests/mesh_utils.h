@@ -23,7 +23,7 @@ limitations under the License.
 namespace nvblox {
 
 void weldVerticesThrustAsync(const std::vector<Index3D>& block_indices,
-                             BlockLayer<MeshBlock>* mesh_layer,
+                             ColorMeshLayer* mesh_layer,
                              const CudaStream& cuda_stream);
 void weldSingleBlockThrustAsync(device_vector<Vector3f>* input_vertices,
                                 device_vector<int>* input_indices,

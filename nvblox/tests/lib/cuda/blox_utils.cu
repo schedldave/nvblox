@@ -119,9 +119,9 @@ __global__ void checkBlockAllConstant(const ColorBlock* block,
   }
   __syncthreads();
   const ColorVoxel voxel = block->voxels[threadIdx.z][threadIdx.y][threadIdx.x];
-  if ((voxel.color.r != voxel_constant->color.r) ||
-      (voxel.color.g != voxel_constant->color.g) ||
-      (voxel.color.b != voxel_constant->color.b)) {
+  if ((voxel.color.r() != voxel_constant->color.r()) ||
+      (voxel.color.g() != voxel_constant->color.g()) ||
+      (voxel.color.b() != voxel_constant->color.b())) {
     *flag = false;
   }
   const float weight_diff = std::abs(voxel.weight - voxel_constant->weight);

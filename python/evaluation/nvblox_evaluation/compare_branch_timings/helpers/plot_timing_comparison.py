@@ -35,18 +35,16 @@ rcParams.update({'figure.autolayout': True})
 def get_total_times(filepath: str) -> pd.Series:
     timings = get_timings_as_dataframe(filepath)
     timings = timings[np.logical_not(timings.index.str.startswith('3dmatch'))]
-    timings = timings[np.logical_not(
-        timings.index.str.startswith('file_loading'))]
+    timings = timings[np.logical_not(timings.index.str.startswith('file_loading'))]
     timings = timings[np.logical_not(timings.index.str.endswith('stbi'))]
     timings = timings[np.logical_not(timings.index.str.startswith('esdf'))]
-    return timings["total_time"]
+    return timings['total_time']
 
 
 # Get timings for multiple runs and average them
-def get_branch_mean_total_times(
-        timing_dir: str) -> Tuple[pd.Series, np.ndarray]:
+def get_branch_mean_total_times(timing_dir: str) -> Tuple[pd.Series, np.ndarray]:
     series = []
-    results_files = glob.glob(timing_dir + "/run_*.txt")
+    results_files = glob.glob(timing_dir + '/run_*.txt')
     for f in results_files:
         series.append(get_total_times(f))
     total_times = pd.concat(series, axis=1)
@@ -54,44 +52,35 @@ def get_branch_mean_total_times(
     total_times_max = total_times.max(axis=1)
     total_times_min = total_times.min(axis=1)
     total_times_max_min_np = np.vstack((total_times_max, total_times_min))
-    total_times_err = np.abs(total_times_max_min_np -
-                             total_times_mean.to_numpy())
+    total_times_err = np.abs(total_times_max_min_np - total_times_mean.to_numpy())
     return total_times_mean, total_times_err
 
 
 def plot_timings(timing_root_dir: str, save_fig: bool = True) -> None:
-    print("Looking for results in: " + timing_root_dir)
+    print('Looking for results in: ' + timing_root_dir)
 
     # Check that the branch results are in the dir
     result_dirs = [
         name for name in os.listdir(timing_root_dir)
         if os.path.isdir(os.path.join(timing_root_dir, name))
     ]
-    assert len(result_dirs
-               ) == 2, "We expect a comparision between exactly two branches"
+    assert len(result_dirs) == 2, 'We expect a comparision between exactly two branches'
 
     # Branch 1 results
     branch_1_name = result_dirs[0]
     branch_1_results_folder = os.path.join(timing_root_dir, branch_1_name)
-    branch_1_mean, branch_1_err = get_branch_mean_total_times(
-        branch_1_results_folder)
+    branch_1_mean, branch_1_err = get_branch_mean_total_times(branch_1_results_folder)
 
     # Branch 2 results
     branch_2_name = result_dirs[1]
     branch_2_results_folder = os.path.join(timing_root_dir, branch_2_name)
-    branch_2_mean, branch_2_err = get_branch_mean_total_times(
-        branch_2_results_folder)
+    branch_2_mean, branch_2_err = get_branch_mean_total_times(branch_2_results_folder)
 
     # Select only the intersection of the two series.
-    intersection_columns = branch_1_mean.index.intersection(
-        branch_2_mean.index)
+    intersection_columns = branch_1_mean.index.intersection(branch_2_mean.index)
 
-    branch_1_inds = [
-        branch_1_mean.index.get_loc(c) for c in intersection_columns
-    ]
-    branch_2_inds = [
-        branch_2_mean.index.get_loc(c) for c in intersection_columns
-    ]
+    branch_1_inds = [branch_1_mean.index.get_loc(c) for c in intersection_columns]
+    branch_2_inds = [branch_2_mean.index.get_loc(c) for c in intersection_columns]
 
     branch_1_mean_filtered = branch_1_mean[intersection_columns]
     branch_2_mean_filtered = branch_2_mean[intersection_columns]
@@ -101,7 +90,7 @@ def plot_timings(timing_root_dir: str, save_fig: bool = True) -> None:
     assert len(branch_2_mean_filtered) == len(branch_1_mean_filtered)
 
     # Plot
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     bar_width = 0.35
     x = np.arange(len(branch_1_mean_filtered))
     x_device = x - bar_width / 2.0
@@ -116,11 +105,8 @@ def plot_timings(timing_root_dir: str, save_fig: bool = True) -> None:
                   bar_width,
                   yerr=branch_2_err_filtered,
                   label=branch_2_name)
-    try:
-        ax.bar_label(bar1, fmt='%.2f')
-        ax.bar_label(bar2, fmt='%.2f')
-    except:
-        pass
+    ax.bar_label(bar1, fmt='%.2f')
+    ax.bar_label(bar2, fmt='%.2f')
     ax.set_xticks(x)
     ax.set_xticklabels(intersection_columns, rotation='vertical')
     ax.legend()
@@ -128,7 +114,7 @@ def plot_timings(timing_root_dir: str, save_fig: bool = True) -> None:
     # Save the plot in the root folder of the timings.
     if save_fig:
         image_path = os.path.join(timing_root_dir, 'timings.png')
-        print("Saving figure to disk as: " + image_path)
+        print('Saving figure to disk as: ' + image_path)
         plt.savefig(image_path)
 
     plt.show()
@@ -136,11 +122,10 @@ def plot_timings(timing_root_dir: str, save_fig: bool = True) -> None:
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(
-        description="Plot branch timing comparisons.")
-    parser.add_argument("timing_root_dir",
-                        metavar="timing_root_dir",
+    parser = argparse.ArgumentParser(description='Plot branch timing comparisons.')
+    parser.add_argument('timing_root_dir',
+                        metavar='timing_root_dir',
                         type=str,
-                        help="The directory containing the timing results.")
+                        help='The directory containing the timing results.')
     args = parser.parse_args()
     plot_timings(args.timing_root_dir)

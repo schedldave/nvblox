@@ -71,7 +71,7 @@ TEST(LayerDecayTest, EmptyLayerTest) {
   const std::vector<Index3D> deallocated_blocks =
       decay_integrator.decay(&layer, CudaStreamOwning());
 
-  EXPECT_EQ(layer.numAllocatedBlocks(), 0);
+  EXPECT_EQ(layer.numBlocks(), 0);
   EXPECT_EQ(deallocated_blocks.size(), 0);
 }
 

@@ -16,7 +16,7 @@ using namespace nvblox;
 
 template <class LayerType>
 class LayerStreamerTestFixture : public ::testing::Test {};
-using LayerStreamerTypes = ::testing::Types<MeshLayerStreamerOldestBlocks,
+using LayerStreamerTypes = ::testing::Types<ColorMeshLayerStreamerOldestBlocks,
                                             TsdfLayerStreamerOldestBlocks>;
 
 TYPED_TEST_SUITE(LayerStreamerTestFixture, LayerStreamerTypes);
@@ -52,7 +52,7 @@ class SimpleLayerStreamer : public LayerStreamerBase<LayerType> {
 template <class LayerType>
 class SimpleLayerStreamerTestFixture : public ::testing::Test {};
 using SimpleLayerStreamerTypes =
-    ::testing::Types<SimpleLayerStreamer<MeshLayer>,
+    ::testing::Types<SimpleLayerStreamer<ColorMeshLayer>,
                      SimpleLayerStreamer<TsdfLayer>>;
 TYPED_TEST_SUITE(SimpleLayerStreamerTestFixture, SimpleLayerStreamerTypes);
 
@@ -166,7 +166,7 @@ class LayerStreamerOldestBlocksTest : public StreamerType {
 template <class LayerType>
 class LayerStreamerOldestBlocksTestFixture : public ::testing::Test {};
 using LayerStreamerOldestBlocksTypes = ::testing::Types<
-    LayerStreamerOldestBlocksTest<MeshLayerStreamerOldestBlocks>,
+    LayerStreamerOldestBlocksTest<ColorMeshLayerStreamerOldestBlocks>,
     LayerStreamerOldestBlocksTest<TsdfLayerStreamerOldestBlocks>>;
 TYPED_TEST_SUITE(LayerStreamerOldestBlocksTestFixture,
                  LayerStreamerOldestBlocksTypes);
@@ -233,7 +233,7 @@ TEST(TsdfLayerStreamerOldestBlocks, SerializeNBytes) {
   scene.generateLayerFromScene(kMaxDistM, &tsdf_layer);
 
   // Get size in bytes of layer
-  const size_t layer_size = tsdf_layer.numAllocatedBlocks() * sizeof(TsdfBlock);
+  const size_t layer_size = tsdf_layer.numBlocks() * sizeof(TsdfBlock);
   const size_t bytes_to_serialize = layer_size / 2;
   ASSERT_GE(bytes_to_serialize, 0);
 
@@ -248,7 +248,7 @@ TEST(TsdfLayerStreamerOldestBlocks, SerializeNBytes) {
   EXPECT_LE(serialized_size, bytes_to_serialize);
 }
 
-TEST(MeshLayerStreamerOldestBlocks, StreamNBytes) {
+TEST(ColorMeshLayerStreamerOldestBlocks, StreamNBytes) {
   // Create a test scene and mesh it
   primitives::Scene scene = test_utils::getSphereInBox();
   constexpr float kVoxelSizeM = 0.05;
@@ -256,18 +256,18 @@ TEST(MeshLayerStreamerOldestBlocks, StreamNBytes) {
   constexpr float kMaxDistM = static_cast<float>(kMaxDistVox) * kVoxelSizeM;
   TsdfLayer tsdf_layer(kVoxelSizeM, MemoryType::kUnified);
   scene.generateLayerFromScene(kMaxDistM, &tsdf_layer);
-  MeshIntegrator mesh_integrator;
-  MeshLayer mesh_layer(tsdf_layer.block_size(), MemoryType::kDevice);
+  ColorMeshIntegrator mesh_integrator;
+  ColorMeshLayer mesh_layer(tsdf_layer.block_size(), MemoryType::kDevice);
   mesh_integrator.integrateMeshFromDistanceField(tsdf_layer, &mesh_layer);
 
   // Create streamer
-  MeshLayerStreamerOldestBlocks layer_streamer;
+  ColorMeshLayerStreamerOldestBlocks layer_streamer;
 
   // Get the total size of the mesh
-  const std::vector<MeshBlock*> blocks = mesh_layer.getAllBlockPointers();
+  const std::vector<ColorMeshBlock*> blocks = mesh_layer.getAllBlockPointers();
   const int total_bytes =
       std::accumulate(blocks.begin(), blocks.end(), 0,
-                      [](const int sum, const MeshBlock* block) {
+                      [](const int sum, const ColorMeshBlock* block) {
                         return sum + sizeInBytes(block);
                       });
   LOG(INFO) << "mesh has : " << total_bytes << " bytes";
@@ -313,7 +313,7 @@ TEST(MeshLayerStreamerOldestBlocks, StreamNBytes) {
 
   const int num_blocks_returned = getSizeOfIntersection(
       all_returned_blocks, mesh_layer.getAllBlockIndices());
-  const int total_num_blocks_in_layer = mesh_layer.numAllocatedBlocks();
+  const int total_num_blocks_in_layer = mesh_layer.numBlocks();
   EXPECT_EQ(num_blocks_returned, total_num_blocks_in_layer);
 }
 
@@ -365,7 +365,7 @@ class ExcludeAllBlocksLayerStreamer : public SimpleLayerStreamer<LayerType> {
 template <class LayerType>
 class ExcludeAllBlocksLayerStreamerTestFixture : public ::testing::Test {};
 using ExcludeAllBlocksLayerStreamerTypes =
-    ::testing::Types<ExcludeAllBlocksLayerStreamer<MeshLayer>,
+    ::testing::Types<ExcludeAllBlocksLayerStreamer<ColorMeshLayer>,
                      ExcludeAllBlocksLayerStreamer<TsdfLayer>>;
 TYPED_TEST_SUITE(ExcludeAllBlocksLayerStreamerTestFixture,
                  ExcludeAllBlocksLayerStreamerTypes);
