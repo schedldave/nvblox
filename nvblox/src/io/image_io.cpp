@@ -27,7 +27,7 @@ struct NumChannels<MonoImage> {
 
 template <>
 struct NumChannels<ColorImage> {
-  static const int value = 4;
+  static const int value = 3; // since 0.0.8 nvblox uses 3-channel RGB images
 };
 
 }  // namespace internal
